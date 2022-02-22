@@ -1,4 +1,5 @@
 def xcorr(x, y, lag):
+    """Cross-correlation centered on lag."""
     from scipy.signal import correlate
 
     Nx = len(x)
@@ -15,7 +16,9 @@ def xcorr(x, y, lag):
 
     return c[Nx - 1 - lag: Nx + lag]
 
+
 def ncorr(x, y, lag):
+    """Normalized cross-correlation centered on lag."""
     import numpy as np
 
     c = xcorr(x, y, lag)
@@ -27,4 +30,3 @@ def ncorr(x, y, lag):
     else:
         c /= s
     return c
-

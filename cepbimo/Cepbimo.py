@@ -1,4 +1,16 @@
 class Cepbimo:
+    """Cepstrum based binaural model
+
+    Methods:
+    align()
+
+    Constructors:
+
+    __init__()
+
+    Properties (readonly):
+    fs, lag, XR, C, q, Xd, XNd, z
+    """
     def __init__(self, x):
         import numpy as np
         from scipy.signal import convolve
@@ -10,12 +22,11 @@ class Cepbimo:
         window_length = offset * 64 * 4
 
         self.fs = x.frame_rate
-        self.lag = (1 * int(self.fs/1000.))
+        self.lag = (1 * int(self.fs / 1000.))
 
         x_channels = x[offset: offset + window_length].split_to_mono()
         x_left = audiosegment_to_array(x_channels[0])
         x_right = audiosegment_to_array(x_channels[1])
-
 
         self.XR = xcorr(x_left, x_right, self.lag)
 
@@ -25,8 +36,8 @@ class Cepbimo:
         self.C = arrays_to_audiosegment(cl, cr, x.frame_rate)
         self.q = ql
 
-        hl = np.concatenate((np.ones((1, )), np.zeros((298, )), -1 * cl[300:4000]))
-        hr = np.concatenate((np.ones((1, )), np.zeros((298, )), -1 * cr[300:4000]))
+        hl = np.concatenate((np.ones((1,)), np.zeros((298,)), -1 * cl[300:4000]))
+        hr = np.concatenate((np.ones((1,)), np.zeros((298,)), -1 * cr[300:4000]))
 
         yl = convolve(x_left, hl)
         yr = convolve(x_right, hr)
@@ -50,13 +61,13 @@ class Cepbimo:
         maxi = max(x[other_zone:])
         maxi_dir = max(x[0:other_zone])
 
-        x[0:other_zone] = x[0:other_zone] * (maxi/maxi_dir)
+        x[0:other_zone] = x[0:other_zone] * (maxi / maxi_dir)
 
         y = y[0:early_zone]
         maxi = max(y[other_zone:])
         maxi_dir = max(y[0:other_zone])
 
-        y[0:other_zone] = y[0:other_zone] * (maxi/maxi_dir)
+        y[0:other_zone] = y[0:other_zone] * (maxi / maxi_dir)
 
         taps = self.lag
 
@@ -65,7 +76,7 @@ class Cepbimo:
         ncorr_max_index = XNd.argmax() - taps + 1
 
         itd_offset = np.zeros((taps,))
-        ncorr_max_offset = np.zeros((abs(ncorr_max_index), ))
+        ncorr_max_offset = np.zeros((abs(ncorr_max_index),))
 
         if ncorr_max_index == 0:
             xx = np.concatenate((itd_offset, x.transpose()))
@@ -77,4 +88,5 @@ class Cepbimo:
         sig_l = convolve(xx, hann(5, sym=False))
         sig_r = convolve(yy, hann(5, sym=False))
 
-        return np.array([np.sqrt(abs(sig_l[taps + 1: taps * 50] * sig_r[taps + 1 + i:taps * 50 + i])) for i in np.arange(-taps, taps)])
+        return np.array([np.sqrt(abs(sig_l[taps + 1: taps * 50] * sig_r[taps + 1 + i:taps * 50 + i])) for i in
+                         np.arange(-taps, taps)])

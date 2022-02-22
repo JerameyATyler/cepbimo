@@ -1,14 +1,23 @@
-def generate_dataset_recipe(count):
-    from RNG import RNG
-    import pandas as pd
-    from dataLoader import list_anechoic_data
-    from pydub import AudioSegment
-    rng = RNG()
+"""Module for generating a reflection dataset."""
+from RNG import RNG
 
-    get_reflection_amplitudes = lambda x: [rng.get_amplitude() for _ in range(x)]
-    get_reflection_delays = lambda x: [rng.get_delay() for _ in range(x)]
-    get_reflection_zeniths = lambda x: [rng.get_zenith() for _ in range(x)]
-    get_reflection_azimuths = lambda x: [rng.get_azimuth(zenith=z) for z in x]
+rng = RNG()
+
+
+def get_reflections(count):
+    """Generate the specified number of random reflections."""
+    amplitudes = [rng.get_amplitude() for _ in range(count)]
+    delays = [rng.get_delay() for _ in range(count)]
+    zeniths = [rng.get_zenith() for _ in range(count)]
+    azimuths = [rng.get_azimuth(zenith=zeniths[i]) for i in range(count)]
+    return zeniths, azimuths, amplitudes, delays
+
+
+def generate_dataset_recipe(count):
+    """Generate a random dataset of the specified size."""
+    import pandas as pd
+    from data_loader import list_anechoic_data
+    from pydub import AudioSegment
 
     ls = {k: len(AudioSegment.from_mp3(list_anechoic_data()[k][0])) for k in list_anechoic_data().keys()}
 
@@ -22,10 +31,17 @@ def generate_dataset_recipe(count):
     reverb_delays = [rng.get_delay() for _ in range(count)]
     reverb_amplitudes = [rng.rng.uniform(0, 0.05) for _ in range(count)]
     reflection_counts = [rng.get_reflection_count() for _ in range(count)]
-    reflection_amplitudes = [get_reflection_amplitudes(reflection_counts[i]) for i in range(count)]
-    reflection_delays = [get_reflection_delays(reflection_counts[i]) for i in range(count)]
-    reflection_zeniths = [get_reflection_zeniths(reflection_counts[i]) for i in range(count)]
-    reflection_azimuths = [get_reflection_azimuths(reflection_zeniths[i]) for i in range(count)]
+    reflection_zeniths = []
+    reflection_azimuths = []
+    reflection_amplitudes = []
+    reflection_delays = []
+
+    for i in range(count):
+        zenith, azimuth, amplitude, delay = get_reflections(reflection_counts[i])
+        reflection_zeniths.append(zenith)
+        reflection_azimuths.append(azimuth)
+        reflection_amplitudes.append(amplitude)
+        reflection_delays.append(delay)
 
     file_paths = [generate_filepath(composers[i], part_counts[i], zeniths[i], azimuths[i]) for i in range(count)]
 
@@ -52,116 +68,121 @@ def generate_dataset_recipe(count):
 
 
 def generate_filepath(composer, part_count, zenith, azimuth):
-    from pathlib import Path
+    """Generate the base filepath for the sample with the specified parameters."""
 
-    data_path = Path('data/reflections/')
-
-    file_dir = f'{composer}_p{part_count:02d}_a{azimuth:03d}_e{zenith:03d}'
-
-    df = data_path / file_dir / file_dir
-
-    return df.__str__()
+    return f'{composer}_p{part_count:02d}_a{azimuth:03d}_e{zenith:03d}'
 
 
 def generate_signal_raw(parts, filepath):
+    """Generate a raw direct signal by mixing the parts."""
     import os
     from pathlib import Path
     from pydub import AudioSegment
     from transforms import mix_parts
 
-    filepath = Path(f'{filepath}_raw.wav')
+    filepath = Path("data/reflections/raw") / f'{filepath}_raw.wav'
 
     if os.path.isfile(filepath):
         return AudioSegment.from_wav(filepath)
 
-    return write_audiosegment(mix_parts(parts), filepath.__str__())
+    return write_file(mix_parts(parts), filepath.__str__())
 
 
 def generate_signal_hrtf(x, zenith, azimuth, filepath):
+    """Apply the HRTF to the signal and save the result."""
     import os
     from pathlib import Path
     from pydub import AudioSegment
     from transforms import apply_hrtf
 
-    filepath = Path(f'{filepath}_hrtf.wav')
+    filepath = Path("data/reflections/hrtf") / f'{filepath}_hrtf.wav'
 
     if os.path.isfile(filepath):
         return AudioSegment.from_wav(filepath)
 
-    return write_audiosegment(apply_hrtf(x, zenith, azimuth), filepath.__str__())
+    return write_file(apply_hrtf(x, zenith, azimuth), filepath.__str__())
 
 
 def generate_signal_reflection(x, count, amplitudes, delays, zeniths, azimuths, filepath):
+    """Apply reflections to the signal and save the result."""
     import os
     from pathlib import Path
     from pydub import AudioSegment
     from transforms import mix_reflections
 
-    filepath = Path(f'{filepath}_reflections.wav')
+    filepath = Path("data/reflections/reflections") / f'{filepath}_reflections.wav'
 
     if os.path.isfile(filepath):
         return AudioSegment.from_wav(filepath)
 
-    return write_audiosegment(mix_reflections(x, count, amplitudes, delays, zeniths, azimuths), filepath.__str__())
+    return write_file(mix_reflections(x, count, amplitudes, delays, zeniths, azimuths), filepath.__str__())
 
 
 def generate_signal_reverberation(x, amplitude, delay, time, filepath):
+    """Apply reverberation to the signal and save the result."""
     import os
     from pathlib import Path
     from pydub import AudioSegment
     from transforms import apply_reverberation
 
-    filepath = Path(f'{filepath}_reverberation.wav')
+    filepath = Path("data/reflections/reverberations") / f'{filepath}_reverberation.wav'
 
     if os.path.isfile(filepath):
         return AudioSegment.from_wav(filepath)
 
-    return write_audiosegment(apply_reverberation(x, amplitude, delay, time), filepath.__str__())
+    return write_file(apply_reverberation(x, amplitude, delay, time), filepath.__str__())
 
 
 def generate_signal_summation(rf, rv, filepath):
+    """Mix the reflection applied signal with the reverberation applied signal."""
     import os
     from pathlib import Path
     from pydub import AudioSegment
     from transforms import sum_signals
 
-    filepath = Path(f'{filepath}_summation.wav')
+    filepath = Path("data/reflections/summation") / f'{filepath}_summation.wav'
 
     if os.path.isfile(filepath):
         return AudioSegment.from_wav(filepath)
 
-    return write_audiosegment(sum_signals(rf, rv), filepath.__str__())
+    return write_file(sum_signals(rf, rv), filepath.__str__())
 
 
 def generate_signal_noise(x, filepath):
+    """Add white noise to the signal"""
     import os
     from pathlib import Path
     from pydub import AudioSegment
     from transforms import adjust_signal_to_noise
 
-    filepath = Path(f'{filepath}_noise.wav')
+    filepath = Path("data/reflections/noise") / f'{filepath}_noise.wav'
 
     if os.path.isfile(filepath):
         return AudioSegment.from_wav(filepath)
 
-    return write_audiosegment(adjust_signal_to_noise(x, -30), filepath.__str__())
+    return write_file(adjust_signal_to_noise(x, -30), filepath.__str__())
 
 
 def generate_signal_trimmed(x, offset, duration, filepath):
+    """Trim the signal to the specified duration at the specified offset."""
     import os
     from pathlib import Path
     from pydub import AudioSegment
 
-    filepath = Path(f'{filepath}.wav')
+    filepath = Path("data/reflections/samples") / f'{filepath}.wav'
 
     if os.path.isfile(filepath):
         return AudioSegment.from_wav(filepath)
 
-    return write_audiosegment(x[offset:offset + duration * 1000], filepath.__str__())
+    return write_file(x[offset:offset + duration * 1000], filepath.__str__())
 
 
 def generate_room_impulse(zenith, azimuth, reflection_count, zeniths, azimuths, delays, amplitudes, amplitude, delay,
                           time, duration, filepath):
+    """
+    Generate the room impulse response by applying an HRTF, reflections, and reverberation to a 'click'
+    [1., 0., ..., 0.]
+    """
     import os
     from pathlib import Path
     from pydub import AudioSegment
@@ -170,7 +191,7 @@ def generate_room_impulse(zenith, azimuth, reflection_count, zeniths, azimuths, 
     from figures import plot_wave
     from utils import audiosegment_to_array, array_to_audiosegment
 
-    f = Path(f'{filepath}_rir.wav')
+    f = Path("data/reflections/rir") / f'{filepath}_rir.wav'
 
     if os.path.isfile(f):
         summation = AudioSegment.from_wav(f)
@@ -187,9 +208,9 @@ def generate_room_impulse(zenith, azimuth, reflection_count, zeniths, azimuths, 
 
         summation = sum_signals(reflections, reverberation)
 
-        write_audiosegment(summation, f.__str__())
+        write_file(summation, f.__str__())
 
-    f = Path(f'{filepath}_rir.png')
+    f = Path("data/reflections/rir") / f'{filepath}_rir.png'
 
     if not os.path.isfile(f):
         t = np.linspace(0, int(np.ceil(summation.duration_seconds)), int(summation.frame_count()))
@@ -211,16 +232,17 @@ def generate_room_impulse(zenith, azimuth, reflection_count, zeniths, azimuths, 
         )
 
         plt = plot_wave(summation, **args)
-        write_figure(plt, f.__str__())
+        write_file(plt, f.__str__())
         plt.close()
 
 
 def generate_plot_sample(zenith, azimuth, zeniths, azimuths, delays, amplitudes, amplitude, delay, time, filepath):
+    """Plot the sample."""
     import os
     from pathlib import Path
     from figures import plot_sample
 
-    filepath = Path(f'{filepath}_sample.png')
+    filepath = Path("data/reflections/samples") / f'{filepath}_sample.png'
 
     if not os.path.isfile(filepath):
         args = dict(
@@ -229,28 +251,25 @@ def generate_plot_sample(zenith, azimuth, zeniths, azimuths, delays, amplitudes,
         )
 
         plt = plot_sample(zenith, azimuth, zeniths, azimuths, delays, amplitudes, amplitude, delay, time, **args)
-        write_figure(plt, filepath.__str__())
+        write_file(plt, filepath.__str__())
         plt.close()
 
 
 def generate_plot_signal(x, filepath):
+    """Plot the signal."""
     import os
     from pathlib import Path
     import numpy as np
     from figures import plot_wave
-    from utils import audiosegment_to_array
+    from utils import split_channels
 
-    filepath = Path(f'{filepath}_raw_wave.png')
+    filepath = Path("data/reflections/raw") / f'{filepath}_raw_wave.png'
 
     if not os.path.isfile(filepath):
         t = np.linspace(0, int(np.ceil(x.duration_seconds)), int(x.frame_count()))
 
-        if x.channels == 1:
-            x = x.set_channels(2)
+        left, right = split_channels(x)
 
-        channels = x.split_to_mono()
-        left = audiosegment_to_array(channels[0])
-        right = audiosegment_to_array(channels[1])
         x = np.array([left, right]).transpose()
 
         args = dict(
@@ -262,28 +281,24 @@ def generate_plot_signal(x, filepath):
         )
 
         plt = plot_wave(x, **args)
-        write_figure(plt, filepath.__str__())
+        write_file(plt, filepath.__str__())
         plt.close()
 
 
 def generate_plot_hrtf(x, filepath):
+    """Plot the HRTF"""
     import os
     from pathlib import Path
     import numpy as np
     from figures import plot_wave
-    from utils import audiosegment_to_array
+    from utils import split_channels
 
-    filepath = Path(f'{filepath}_hrtf_wave.png')
+    filepath = Path("data/reflections/hrtf") / f'{filepath}_hrtf_wave.png'
 
     if not os.path.isfile(filepath):
         t = np.linspace(0, int(np.ceil(x.duration_seconds)), int(x.frame_count()))
 
-        if x.channels == 1:
-            x = x.set_channels(2)
-
-        channels = x.split_to_mono()
-        left = audiosegment_to_array(channels[0])
-        right = audiosegment_to_array(channels[1])
+        left, right = split_channels(x)
         x = np.array([left, right]).transpose()
 
         args = dict(
@@ -295,28 +310,24 @@ def generate_plot_hrtf(x, filepath):
         )
 
         plt = plot_wave(x, **args)
-        write_figure(plt, filepath.__str__())
+        write_file(plt, filepath.__str__())
         plt.close()
 
 
 def generate_plot_reflections(x, filepath):
+    """Plot the reflections."""
     import os
     from pathlib import Path
     import numpy as np
     from figures import plot_wave
-    from utils import audiosegment_to_array
+    from utils import split_channels
 
-    filepath = Path(f'{filepath}_reflections_wave.png')
+    filepath = Path("data/reflections/reflections") / f'{filepath}_reflections_wave.png'
 
     if not os.path.isfile(filepath):
         t = np.linspace(0, int(np.ceil(x.duration_seconds)), int(x.frame_count()))
 
-        if x.channels == 1:
-            x = x.set_channels(2)
-
-        channels = x.split_to_mono()
-        left = audiosegment_to_array(channels[0])
-        right = audiosegment_to_array(channels[1])
+        left, right = split_channels(x)
         x = np.array([left, right]).transpose()
 
         args = dict(
@@ -328,28 +339,25 @@ def generate_plot_reflections(x, filepath):
         )
 
         plt = plot_wave(x, **args)
-        write_figure(plt, filepath.__str__())
+        write_file(plt, filepath.__str__())
         plt.close()
 
 
 def generate_plot_reverberation(x, filepath):
+    """Plot the reverberation."""
     import os
     from pathlib import Path
     import numpy as np
     from figures import plot_wave
-    from utils import audiosegment_to_array
+    from utils import split_channels
 
-    filepath = Path(f'{filepath}_reverberation_wave.png')
+    filepath = Path("data/reflections/reverberations") / f'{filepath}_reverberation_wave.png'
 
     if not os.path.isfile(filepath):
         t = np.linspace(0, int(np.ceil(x.duration_seconds)), int(x.frame_count()))
 
-        if x.channels == 1:
-            x = x.set_channels(2)
+        left, right = split_channels(x)
 
-        channels = x.split_to_mono()
-        left = audiosegment_to_array(channels[0])
-        right = audiosegment_to_array(channels[1])
         x = np.array([left, right]).transpose()
 
         args = dict(
@@ -361,28 +369,24 @@ def generate_plot_reverberation(x, filepath):
         )
 
         plt = plot_wave(x, **args)
-        write_figure(plt, filepath.__str__())
+        write_file(plt, filepath.__str__())
         plt.close()
 
 
 def generate_plot_summation(x, filepath):
+    """Plot the summed signal."""
     import os
     from pathlib import Path
     import numpy as np
     from figures import plot_wave
-    from utils import audiosegment_to_array
+    from utils import split_channels
 
-    filepath = Path(f'{filepath}_summation_wave.png')
+    filepath = Path("data/reflections/summation") / f'{filepath}_summation_wave.png'
 
     if not os.path.isfile(filepath):
         t = np.linspace(0, int(np.ceil(x.duration_seconds)), int(x.frame_count()))
 
-        if x.channels == 1:
-            x = x.set_channels(2)
-
-        channels = x.split_to_mono()
-        left = audiosegment_to_array(channels[0])
-        right = audiosegment_to_array(channels[1])
+        left, right = split_channels(x)
         x = np.array([left, right]).transpose()
 
         args = dict(
@@ -394,28 +398,25 @@ def generate_plot_summation(x, filepath):
         )
 
         plt = plot_wave(x, **args)
-        write_figure(plt, filepath.__str__())
+        write_file(plt, filepath.__str__())
         plt.close()
 
 
 def generate_plot_noise(x, filepath):
+    """Plot the noise added signal."""
     import os
     from pathlib import Path
     import numpy as np
     from figures import plot_wave
-    from utils import audiosegment_to_array
+    from utils import split_channels
 
-    filepath = Path(f'{filepath}_noise_wave.png')
+    filepath = Path("data/reflections/noise") / f'{filepath}_noise_wave.png'
 
     if not os.path.isfile(filepath):
         t = np.linspace(0, int(np.ceil(x.duration_seconds)), int(x.frame_count()))
 
-        if x.channels == 1:
-            x = x.set_channels(2)
+        left, right = split_channels(x)
 
-        channels = x.split_to_mono()
-        left = audiosegment_to_array(channels[0])
-        right = audiosegment_to_array(channels[1])
         x = np.array([left, right]).transpose()
 
         args = dict(
@@ -427,29 +428,25 @@ def generate_plot_noise(x, filepath):
         )
 
         plt = plot_wave(x, **args)
-        write_figure(plt, filepath.__str__())
+        write_file(plt, filepath.__str__())
         plt.close()
 
 
 def generate_plot_trimmed(x, filepath):
+    """Plot the trimmed sample."""
     import os
     from pathlib import Path
     import numpy as np
     from figures import plot_wave
-    from utils import audiosegment_to_array
+    from utils import split_channels
 
-    filepath = Path(f'{filepath}_wave.png')
+    filepath = Path("data/reflections/samples") / f'{filepath}_wave.png'
 
     if not os.path.isfile(filepath):
         duration = int(np.ceil(x.duration_seconds))
         t = np.linspace(0, duration, int(x.frame_count()))
 
-        if x.channels == 1:
-            x = x.set_channels(2)
-
-        channels = x.split_to_mono()
-        left = audiosegment_to_array(channels[0])
-        right = audiosegment_to_array(channels[1])
+        left, right = split_channels(x)
         x = np.array([left, right]).transpose()
 
         args = dict(
@@ -461,11 +458,12 @@ def generate_plot_trimmed(x, filepath):
         )
 
         plt = plot_wave(x, **args)
-        write_figure(plt, filepath.__str__())
+        write_file(plt, filepath.__str__())
         plt.close()
 
 
 def generate_plot_ceptstrum(x, filepath):
+    """Plot the cepstrum."""
     import os
     from pathlib import Path
     from figures import plot_cepstrum
@@ -480,7 +478,7 @@ def generate_plot_ceptstrum(x, filepath):
     left = audiosegment_to_array(channels[0])
     right = audiosegment_to_array(channels[1])
 
-    f = Path(f'{filepath}_left_cepstrum.png')
+    f = Path("data/reflections/cepstrums") / f'{filepath}_left_cepstrum.png'
 
     if not os.path.isfile(f):
         args = dict(
@@ -491,10 +489,10 @@ def generate_plot_ceptstrum(x, filepath):
         )
 
         plt = plot_cepstrum(left, fs, offset, window_length, **args)
-        write_figure(plt, f.__str__())
+        write_file(plt, f.__str__())
         plt.close()
 
-    f = Path(f'{filepath}_right_cepstrum.png')
+    f = Path("data/reflections/cepstrums") / f'{filepath}_right_cepstrum.png'
 
     if not os.path.isfile(f):
         args = dict(
@@ -505,10 +503,10 @@ def generate_plot_ceptstrum(x, filepath):
         )
 
         plt = plot_cepstrum(right, fs, offset, window_length, **args)
-        write_figure(plt, f.__str__())
+        write_file(plt, f.__str__())
         plt.close()
 
-    f = Path(f'{filepath}_left_cepstrum_20.png')
+    f = Path("data/reflections/cepstrums") / f'{filepath}_left_cepstrum_20.png'
 
     if not os.path.isfile(f):
         args = dict(
@@ -520,10 +518,10 @@ def generate_plot_ceptstrum(x, filepath):
         )
 
         plt = plot_cepstrum(left, fs, offset, window_length, **args)
-        write_figure(plt, f.__str__())
+        write_file(plt, f.__str__())
         plt.close()
 
-    f = Path(f'{filepath}_right_cepstrum_20.png')
+    f = Path("data/reflections/cepstrums") / f'{filepath}_right_cepstrum_20.png'
 
     if not os.path.isfile(f):
         args = dict(
@@ -535,55 +533,64 @@ def generate_plot_ceptstrum(x, filepath):
         )
 
         plt = plot_cepstrum(right, fs, offset, window_length, **args)
-        write_figure(plt, f.__str__())
+        write_file(plt, f.__str__())
         plt.close()
 
 
 def generate_plot_cepbimo(x, filepath):
+    """Plot the Cepbimo."""
     import os
     from pathlib import Path
     import numpy as np
-    from figures import plot_wave, plot_binaural_activity_map_3d, plot_binaural_activity_map_2d
+    from figures import plot_waves, plot_binaural_activity_map_3d, plot_binaural_activity_map_2d
 
-    f = Path(f'{filepath}_cepbimo_wave.png')
+    f = Path("data/reflections/cepbimo") / f'{filepath}_cepbimo_wave.png'
 
     if not os.path.isfile(f):
         X = np.array([x.Xd / 200, x.XR / 200]).transpose()
         t = np.linspace(-1., 1., (x.lag * 2) + 1)
 
         args = dict(
-            t=[t, t],
+            t=t,
             suptitle=f'Cepbimo',
-            title=['Left channel', 'Right channel', 'Interaural cross-correlation'],
-            xlabel=['Quefrency, ms', 'Quefrency, ms', 'ITD, ms'],
-            ylabel=['Amplitude', 'Amplitude', 'Correlation']
+            title='Interaural cross-correlation',
+            xlabel='ITD, ms',
+            ylabel='Correlation',
+            legend=True,
+            legend_labels=['2nd-layer cross-correlation', 'Cross-correlation']
         )
 
-        plt = plot_wave(X, **args)
+        plt = plot_waves(X, **args)
 
-        write_figure(plt, f.__str__())
+        write_file(plt, f.__str__())
         plt.close()
 
-    f = Path(f'{filepath}_binaural_activity_map_3d.png')
+    f = Path("data/reflections/cepbimo") / f'{filepath}_binaural_activity_map_3d.png'
 
     if not os.path.isfile(f):
         plt = plot_binaural_activity_map_3d(x.z)
-        write_figure(plt, f.__str__())
+        write_file(plt, f.__str__())
         plt.close()
 
-
-
-    f = Path(f'{filepath}_binaural_activity_map_2d.png')
+    f = Path("data/reflections/cepbimo") / f'{filepath}_binaural_activity_map_2d.png'
 
     if not os.path.isfile(f):
         plt = plot_binaural_activity_map_2d(x.z)
-        write_figure(plt, f.__str__())
+        write_file(plt, f.__str__())
         plt.close()
 
+
 def write_recipe(recipe, path='data/', file_type='csv'):
+    """Write the recipe to a file."""
+    import os
     from pathlib import Path
 
     path = Path(path) / f'recipe.{file_type}'
+
+    if not os.path.isdir(path.parents[1]):
+        os.mkdir(path.parents[1])
+    if not os.path.isdir(path.parents[0]):
+        os.mkdir(path.parents[0])
 
     if file_type == 'csv':
         recipe.to_csv(path, index=False)
@@ -594,9 +601,8 @@ def write_recipe(recipe, path='data/', file_type='csv'):
 
 
 def read_recipe(path):
+    """Read the recipe from a file."""
     import pandas as pd
-
-    print(path)
 
     if path.endswith('.csv'):
         return pd.read_csv(path, converters={'parts': lambda x: x.strip('[]').replace("'", "").split(', ')})
@@ -605,6 +611,7 @@ def read_recipe(path):
 
 
 def make_recipe(recipe):
+    """Make the recipe specified."""
     from Cepbimo import Cepbimo
 
     print('Start plotting samples:')
@@ -728,12 +735,18 @@ def make_recipe(recipe):
     recipe.apply(lambda row: generate_plot_cepbimo(row['cepbimo'], row['filepath']), axis=1)
     print('Finished plotting Cepbimo:\n')
 
+    return recipe
 
-def write_audiosegment(a, filepath):
+
+def write_file(a, filepath):
+    """Write a file to disk."""
     import os
     from pathlib import Path
 
     filepath = Path(filepath)
+    if not os.path.isdir(filepath.parents[2]):
+        print(f"\tMaking directory {filepath.parents[2]}")
+
     if not os.path.isdir(filepath.parents[1]):
         print(f'\tMaking directory {filepath.parents[1]}')
         os.mkdir(Path(filepath.parents[1]))
@@ -744,37 +757,22 @@ def write_audiosegment(a, filepath):
 
     if not os.path.isfile(filepath):
         print(f'\tMaking file {filepath}')
-        a.export(filepath, format='wav')
+        if ".wav" == filepath.suffix:
+            a.export(filepath, format=filepath.suffix.strip("."))
+        else:
+            a.savefig(filepath, format=filepath.suffix.strip("."))
 
     return a
 
 
-def write_figure(f, filepath):
-    import os
-    from pathlib import Path
-
-    filepath = Path(filepath)
-    if not os.path.isdir(filepath.parents[1]):
-        print(f'\tMaking directory {filepath.parents[1]}')
-        os.mkdir(Path(filepath.parents[1]))
-
-    if not os.path.isdir(filepath.parents[0]):
-        print(f'\tMaking directory {filepath.parents[0]}')
-        os.mkdir(Path(filepath.parents[0]))
-
-    if not os.path.isfile(filepath):
-        print(f'\tMaking file {filepath}')
-        f.savefig(filepath, format='png')
-
-    return f
+def generate_dataset(count):
+    recipe_path = "data/"
+    recipe = generate_dataset_recipe(count)
+    recipe_path = write_recipe(recipe, path=recipe_path, file_type="json")
+    recipe = read_recipe(recipe_path)
+    dataset = make_recipe(recipe)
+    return dataset
 
 
 if __name__ == '__main__':
-    from pathlib import Path
-
-    r_path = 'data/'
-    r = generate_dataset_recipe(10)
-    r_path = write_recipe(r, path=r_path, file_type='json')
-    # r_path = (Path(r_path) / 'recipe.json').__str__()
-    r = read_recipe(r_path)
-    make_recipe(r)
+    ds = generate_dataset(10)

@@ -35,7 +35,7 @@ class RNG:
         seed, duration, delay_limits, time_limits, reflection_limits
         """
         import numpy as np
-        import dataLoader
+        from data_loader import list_hrtf_data, list_anechoic_data, list_composers
 
         self.seed = seed
         self.duration = duration
@@ -45,9 +45,9 @@ class RNG:
 
         self.rng = np.random.default_rng(int(self.seed, 0))
 
-        self.composers = dataLoader.list_composers()
-        self.anechoic_data = dataLoader.list_anechoic_data()
-        self.hrtf_data = dataLoader.list_hrtf_data()
+        self.composers = list_composers()
+        self.anechoic_data = list_anechoic_data()
+        self.hrtf_data = list_hrtf_data()
 
     def get_composer(self):
         """Select a composer from those available in the data and return as string"""

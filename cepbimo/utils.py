@@ -1,4 +1,5 @@
 def audiosegment_to_array(audiosegment):
+    """Convert a Pydub AudioSegment into a numpy array."""
     import numpy as np
 
     y = np.array(audiosegment.get_array_of_samples())
@@ -10,6 +11,7 @@ def audiosegment_to_array(audiosegment):
 
 
 def array_to_audiosegment(arr, fs):
+    """Convert a numpy array to a Pydub AudioSegment."""
     from pydub import AudioSegment
     import numpy as np
 
@@ -20,8 +22,21 @@ def array_to_audiosegment(arr, fs):
 
 
 def arrays_to_audiosegment(left, right, fs):
+    """Convert two numpy arrays to a Pydub AudioSegment."""
     from pydub import AudioSegment
 
-    l = array_to_audiosegment(left, fs)
-    r = array_to_audiosegment(right, fs)
-    return AudioSegment.from_mono_audiosegments(l, r)
+    left = array_to_audiosegment(left, fs)
+    right = array_to_audiosegment(right, fs)
+    return AudioSegment.from_mono_audiosegments(left, right)
+
+
+def split_channels(x):
+    """Split a Pydub AudioSegment into left and right channels and convert them to numpy arrays."""
+    if x.channels == 1:
+        x = x.set_channels(2)
+
+    channels = x.split_to_mono()
+    left = audiosegment_to_array(channels[0])
+    right = audiosegment_to_array(channels[1])
+
+    return left, right

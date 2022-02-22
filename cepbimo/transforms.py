@@ -1,7 +1,8 @@
 def apply_hrtf(x, zenith, azimuth):
+    """Apply the HRTF to the signal"""
     from utils import audiosegment_to_array, arrays_to_audiosegment
     from pydub import AudioSegment
-    from dataLoader import list_hrtf_data
+    from data_loader import list_hrtf_data
     from scipy.signal import convolve
 
     left, right = sorted(list(list_hrtf_data()[zenith][azimuth]))
@@ -26,12 +27,14 @@ def apply_hrtf(x, zenith, azimuth):
     right_h = audiosegment_to_array(channels_h[1])
     right_x = audiosegment_to_array(channels_x[1])
 
-    l = convolve(left_h, left_x)
-    r = convolve(right_h, right_x)
+    left = convolve(left_h, left_x)
+    right = convolve(right_h, right_x)
 
-    return arrays_to_audiosegment(l, r, fs)
+    return arrays_to_audiosegment(left, right, fs)
+
 
 def apply_reflection(x, amplitude, delay, zenith, azimuth):
+    """Apply the reflection to the signal."""
     from pydub import AudioSegment
     from utils import audiosegment_to_array, arrays_to_audiosegment
 
@@ -45,7 +48,9 @@ def apply_reflection(x, amplitude, delay, zenith, azimuth):
 
     return y
 
+
 def apply_reverberation(x, amplitude, delay, time):
+    """Apply the reverberation to the signal."""
     from pydub import AudioSegment
     import numpy as np
     from scipy.signal import fftconvolve
@@ -55,7 +60,7 @@ def apply_reverberation(x, amplitude, delay, time):
 
     length = fs * time * 2
     t = np.linspace(0, int(np.ceil(length / fs)), int(length + 1))
-    envelope = np.exp(-1 * (t/time) * (60/20) * np.log(10)).transpose()
+    envelope = np.exp(-1 * (t / time) * (60 / 20) * np.log(10)).transpose()
 
     left_reverb = np.random.randn(t.shape[0], ) * envelope
     right_reverb = np.random.randn(t.shape[0], ) * envelope
@@ -64,13 +69,15 @@ def apply_reverberation(x, amplitude, delay, time):
     left = audiosegment_to_array(channels[0])
     right = audiosegment_to_array(channels[1])
 
-    l = fftconvolve(left_reverb, left) * amplitude
-    r = fftconvolve(right_reverb, right) * amplitude
-    y = AudioSegment.silent(delay) + arrays_to_audiosegment(l, r, fs)
+    left = fftconvolve(left_reverb, left) * amplitude
+    right = fftconvolve(right_reverb, right) * amplitude
+    y = AudioSegment.silent(delay) + arrays_to_audiosegment(left, right, fs)
 
     return y
 
+
 def mix_parts(parts):
+    """Mix the parts into a signal."""
     from pydub import AudioSegment
 
     sounds = [AudioSegment.from_mp3(p) for p in parts]
@@ -83,7 +90,9 @@ def mix_parts(parts):
 
     return s
 
+
 def mix_reflections(x, count, amplitudes, delays, zeniths, azimuths):
+    """Mix the reflections into a signal."""
     from pydub import AudioSegment
 
     reflections = [apply_reflection(x, amplitudes[r], delays[r], zeniths[r], azimuths[r]) for r in range(count)]
@@ -96,7 +105,9 @@ def mix_reflections(x, count, amplitudes, delays, zeniths, azimuths):
         s = s.overlay(r)
     return s
 
+
 def sum_signals(x, y):
+    """Sum two signal."""
     from pydub import AudioSegment
 
     t = max(len(x), len(y))
@@ -107,7 +118,9 @@ def sum_signals(x, y):
 
     return s
 
+
 def adjust_signal_to_noise(x, dB):
+    """Add white noise to a signal."""
     from pydub.generators import WhiteNoise
 
     noise = WhiteNoise().to_audio_segment(duration=len(x))

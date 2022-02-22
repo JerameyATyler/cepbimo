@@ -1,4 +1,5 @@
 def list_composers(console=False):
+    """Lists composers available in the anechoic data."""
     import os
     from pathlib import Path
 
@@ -13,6 +14,7 @@ def list_composers(console=False):
 
 
 def list_anechoic_data(console=False):
+    """Lists all the anechoic data available."""
     import os
     from pathlib import Path
 
@@ -34,6 +36,7 @@ def list_anechoic_data(console=False):
 
 
 def list_hrtf_data(console=False):
+    """Lists all the HRTFs available."""
     from pathlib import Path
     import os
 
