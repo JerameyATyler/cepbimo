@@ -61,3 +61,56 @@ def list_hrtf_data(console=False):
             print(f'Zenith {z} : Azimuths {sorted(list(zeniths[z].keys()))}')
 
     return zeniths
+
+
+def get_zeniths(zmin=None, zmax=None):
+    zeniths = sorted(list(list_hrtf_data().keys()))
+    if zmin is None:
+        zmin = min(zeniths)
+    if zmax is None:
+        zmax = max(zeniths)
+    zs = []
+    for z in zeniths:
+        if zmin <= z <= zmax:
+            zs.append(z)
+    return sorted(zs)
+
+
+def get_azimuths(amin=None, amax=None):
+    from itertools import chain
+
+    hrtfs = list_hrtf_data()
+    azimuths = [[a for a in hrtfs[z].keys()] for z in hrtfs.keys()]
+    azimuths = set(chain.from_iterable(azimuths))
+    if amin is None:
+        amin = min(azimuths)
+    if amax is None:
+        amax = max(azimuths)
+    return sorted(list([a for a in azimuths if amin <= a <= amax]))
+
+
+def get_hrtfs(amin=None, amax=None, zmin=None, zmax=None):
+    hrtfs = list_hrtf_data()
+    zes = []
+    azi = []
+
+    if amin is None:
+        amin = 0
+    if amax is None:
+        amax = 360
+    if zmin is None:
+        zmin = min(hrtfs.keys())
+    if zmax is None:
+        zmax = max(hrtfs.keys())
+
+    for z in sorted(list(hrtfs.keys())):
+        if zmin <= z <= zmax:
+            for a in sorted(list(hrtfs[z].keys())):
+                if amin <= a <= amax:
+                    zes.append(z)
+                    azi.append(a)
+    return zes, azi
+
+
+if __name__ == '__main__':
+    print(get_azimuths(0, 30))

@@ -40,3 +40,39 @@ def split_channels(x):
     right = audiosegment_to_array(channels[1])
 
     return left, right
+
+
+def is_notebook():
+    """ Returns True if we are running inside a Jupyter shell"""
+    try:
+        shell = get_ipython().__class__.__name__
+        # Jupyter shell
+        if shell == 'ZMQInteractiveShell':
+            return True
+        # IPython shell
+        elif shell == 'TerminalInteractiveShell':
+            return False
+
+        shell = get_ipython().__class__.__module__
+        # Google Colab shell
+        if shell == 'google.colab.__shell':
+            return True
+
+        return False
+    except NameError:
+        return False
+
+
+def play_audio(x):
+    from IPython.display import Audio
+    import numpy as np
+
+    fs = x.frame_rate
+
+    left, right = split_channels(x)
+
+    y = left
+    if x.channels == 2:
+        y = np.array([left, right]).transpose()
+
+    return Audio(y, rate=fs)

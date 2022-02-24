@@ -3,33 +3,6 @@
 # Use seaborn to manage theme
 import seaborn as sns
 
-
-def is_notebook():
-    """ Returns True if we are running inside a Jupyter shell"""
-    try:
-        shell = get_ipython().__class__.__name__
-        # Jupyter shell
-        if shell == 'ZMQInteractiveShell':
-            return True
-        # IPython shell
-        elif shell == 'TerminalInteractiveShell':
-            return False
-
-        shell = get_ipython().__class__.__module__
-        # Google Colab shell
-        if shell == 'google.colab.__shell':
-            return True
-
-        return False
-    except NameError:
-        return False
-
-
-if is_notebook():
-    # If we are running in a Jupyter shell run the magic command
-    # noinspection PyUnresolvedReferences
-    import magic
-
 color_palette = 'viridis'
 
 sns.set_theme(palette=color_palette)
@@ -101,7 +74,6 @@ def polar_figure(shape, **kwargs):
 
 
 def set_parameters(ax, **kwargs):
-
     if 'xlim' in kwargs.keys():
         ax.set_xlim(kwargs['xlim'])
     if 'ylim' in kwargs.keys():
@@ -416,15 +388,15 @@ def demo_plot_hrtfs():
     plt.close()
 
 
-def plot_reflections(zeniths, azimuths, delays, amplitudes, **kwargs):
+def plot_reflections(zeniths, azimuths, delays, amplitudes, delay_max=None, **kwargs):
     """Plot reflections."""
     import numpy as np
     from data_loader import list_hrtf_data
-    from data_generator import rng
 
     zenith_min = min(list_hrtf_data().keys())
     zenith_max = max(list_hrtf_data().keys())
-    delay_max = rng.delay_limits[1]
+    if delay_max is None:
+        delay_max = max(delays)
 
     plt, fig, ax = polar_figure('refs', **kwargs)
 
@@ -487,9 +459,10 @@ def plot_reflections(zeniths, azimuths, delays, amplitudes, **kwargs):
 
 def demo_plot_reflections():
     """Demonstrate plot_reflections usage."""
-    from data_generator import get_reflections
+    from data_generator import DataGenerator
 
-    zeniths, azimuths, amplitudes, delays = get_reflections(8)
+    dg = DataGenerator(1)
+    zeniths, azimuths, amplitudes, delays = dg.get_reflections(8)
 
     args = dict(suptitle='Reflections', title='Reflections plot: the dragon story')
 
@@ -498,14 +471,26 @@ def demo_plot_reflections():
     plt.close()
 
 
-def plot_sample(zenith, azimuth, zeniths, azimuths, delays, amplitudes, amplitude, delay, time, **kwargs):
+def plot_sample(zenith,
+                azimuth,
+                zeniths,
+                azimuths,
+                delays,
+                amplitudes,
+                amplitude,
+                delay,
+                time,
+                delay_max=None,
+                time_max=None,
+                **kwargs):
     """Plot sample."""
     import numpy as np
-    from data_generator import rng
     from data_loader import list_hrtf_data
 
-    delay_max = rng.delay_limits[1]
-    time_max = rng.time_limits[1]
+    if delay_max is None:
+        delay_max = max(delays)
+    if time_max is None:
+        time_max = time
 
     zenith_min = min(list_hrtf_data().keys())
     zenith_max = max(list_hrtf_data().keys())
@@ -526,12 +511,15 @@ def plot_sample(zenith, azimuth, zeniths, azimuths, delays, amplitudes, amplitud
 
 def demo_plot_sample():
     """Demonstrate plot_sample usage."""
-    from data_generator import get_reflections, rng
+    from data_generator import DataGenerator
+
+    dg = DataGenerator(1)
+    rng = dg.rng
 
     zenith = rng.get_zenith()
     azimuth = rng.get_azimuth(zenith=zenith)
 
-    zeniths, azimuths, amplitudes, delays = get_reflections(8)
+    zeniths, azimuths, amplitudes, delays = dg.get_reflections(8)
 
     amplitude = rng.rng.uniform(0, 0.05)
     delay = rng.get_delay()
@@ -593,10 +581,12 @@ def plot_binaural_activity_map_2d(z, **kwargs):
 def demo_plot_binaural_activity_map_2d():
     """Demonstrate plot_binaural_activity_map_2d usage."""
     from pathlib import Path
-    from data_generator import generate_dataset_recipe, write_recipe, read_recipe, make_recipe
+    from data_generator import DataGenerator, write_recipe, read_recipe, make_recipe
+
+    dg = DataGenerator(1)
 
     recipe_path = Path('data/demo')
-    r = generate_dataset_recipe(1)
+    r = dg.generate_dataset_recipe()
     recipe_path = write_recipe(r, path=recipe_path, file_type='json')
     r = read_recipe(recipe_path)
     make_recipe(r)
@@ -650,10 +640,12 @@ def plot_binaural_activity_map_3d(z, **kwargs):
 def demo_plot_binaural_activity_map_3d():
     """Demonstrate plot_binaural_activity_map_3d usage."""
     from pathlib import Path
-    from data_generator import generate_dataset_recipe, write_recipe, read_recipe, make_recipe
+    from data_generator import DataGenerator, write_recipe, read_recipe, make_recipe
+
+    dg = DataGenerator(1)
 
     recipe_path = Path('data/demo')
-    r = generate_dataset_recipe(1)
+    r = dg.generate_dataset_recipe()
     recipe_path = write_recipe(r, path=recipe_path, file_type='json')
     r = read_recipe(recipe_path)
     make_recipe(r)
@@ -669,14 +661,109 @@ def demo_plot_binaural_activity_map_3d():
     plt.iloc[0].close()
 
 
+def plot_zenith_range(z_min, z_max, **kwargs):
+    import matplotlib as mpl
+    import matplotlib.pyplot as plt
+    import numpy as np
+    """Generates a polar figure with the specified shape."""
+
+    cmap = mpl.cm.get_cmap('viridis')(0.5)
+
+    z_min = np.deg2rad(z_min)
+    z_max = np.deg2rad(z_max)
+    theta = np.linspace(z_min, z_max)
+
+    fig = plt.figure(layout='constrained')
+    fig.set_size_inches((5, 5))
+
+    ax = fig.add_subplot(projection='polar')
+
+    if 'suptitle' in kwargs.keys():
+        plt.suptitle(kwargs['suptitle'], **suptitle_font)
+    if 'title' in kwargs.keys():
+        ax.set_title(kwargs['title'], **title_font)
+
+    ax.set_rticks([])
+    ax.tick_params(labelsize=20)
+
+    # Arrow
+    ax.annotate('',
+                xy=(1, 0.5),
+                xytext=(0.5, 0.5),
+                xycoords="axes fraction",
+                arrowprops=dict(facecolor='red',
+                                width=6,
+                                headwidth=12,
+                                alpha=0.75))
+    # Arrow text
+    ax.annotate('Face Forward',
+                xy=(0.5, 0.5),
+                xytext=(0.75, 0.5),
+                xycoords="axes fraction",
+                ha='center',
+                va='center',
+                fontsize=20)
+
+    ax.grid(True)
+    area = plt.fill_between(theta, 0, 1, alpha=0.75, label='area', color=cmap);
+    return plt, fig, ax, area
+
+
+def demo_plot_zenith_range():
+    z_min = -20
+    z_max = 45
+
+    degree_text = r'$^{\circ}$'
+    args = dict(suptitle='Zenith range',
+                title=f'{z_min}{degree_text}  -  {z_max}{degree_text}')
+
+    plt, _, _, _ = plot_zenith_range(z_min, z_max, **args)
+    plt.show()
+    plt.close()
+
+
+def plot_azimuth_range(a_min, a_max, **kwargs):
+    import matplotlib as mpl
+    import numpy as np
+    """Generates a polar figure with the specified shape."""
+
+    cmap = mpl.cm.get_cmap('viridis')(0.5)
+
+    a_min = np.deg2rad(a_min)
+    a_max = np.deg2rad(a_max)
+    theta = np.linspace(a_min, a_max)
+
+    plt, fig, ax = polar_figure('square', **kwargs)
+    fig.set_size_inches((5, 5))
+    ax.set_rticks([])
+    area = plt.fill_between(theta, 0, 1, alpha=0.75, label='area', color=cmap)
+
+    return plt, fig, ax, area
+
+
+def demo_plot_azimuth_range():
+    a_min = -15
+    a_max = 60
+
+    degree_text = r'$^{\circ}$'
+    args = dict(suptitle='Azimuth range',
+                title=f'{a_min}{degree_text}  -  {a_max}{degree_text}')
+
+    plt, _, _, _ = plot_azimuth_range(a_min, a_max, **args)
+    plt.show()
+    plt.close()
+
+
 if __name__ == '__main__':
-    demo_plot_wave()
-    demo_plot_waves()
-    demo_plot_spectrogram()
-    demo_plot_spectrum()
-    demo_plot_cepstrum()
-    demo_plot_hrtfs()
-    demo_plot_reflections()
-    demo_plot_sample()
-    demo_plot_binaural_activity_map_2d()
-    demo_plot_binaural_activity_map_3d()
+    # demo_plot_wave()
+    # demo_plot_waves()
+    # demo_plot_spectrogram()
+    # demo_plot_spectrum()
+    # demo_plot_cepstrum()
+    # demo_plot_hrtfs()
+    # demo_plot_reflections()
+    # demo_plot_sample()
+    # demo_plot_binaural_activity_map_2d()
+    # demo_plot_binaural_activity_map_3d()
+    demo_plot_zenith_range()
+    demo_plot_azimuth_range()
