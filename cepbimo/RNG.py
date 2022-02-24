@@ -27,7 +27,9 @@ class RNG:
                  duration=20,
                  delay_limits=(0, 60),
                  time_limits=(1, 8),
-                 reflection_limits=(4, 8)):
+                 reflection_limits=(4, 8),
+                 zenith_limits=None,
+                 azimuth_limits=None):
         """Constructor.
 
         Arguments:
@@ -35,19 +37,39 @@ class RNG:
         seed, duration, delay_limits, time_limits, reflection_limits
         """
         import numpy as np
-        from data_loader import list_hrtf_data, list_anechoic_data, list_composers
+        from data_loader import list_hrtf_data, list_anechoic_data, list_composers, get_hrtfs
 
         self.seed = seed
         self.duration = duration
         self.delay_limits = delay_limits
         self.time_limits = time_limits
         self.reflection_limits = reflection_limits
+        self.zenith_limits = zenith_limits
+        self.azimuth_limits = azimuth_limits
 
         self.rng = np.random.default_rng(int(self.seed, 0))
 
         self.composers = list_composers()
         self.anechoic_data = list_anechoic_data()
-        self.hrtf_data = list_hrtf_data()
+
+        if zenith_limits is not None:
+            zmin, zmax = zenith_limits
+        else:
+            zmin, zmax = None, None
+        if azimuth_limits is not None:
+            amin, amax = azimuth_limits
+        else:
+            amin, amax = None, None
+
+        hrtf_data = list_hrtf_data()
+        zeniths, azimuths = get_hrtfs(amin=amin, amax=amax, zmin=zmin, zmax=zmax)
+        hrtfs = {z: {} for z in zeniths}
+        for z in zeniths:
+            for a in azimuths:
+                if a in hrtf_data[z].keys():
+                    hrtfs[z][a] = hrtf_data[z][a]
+
+        self.hrtf_data = hrtfs
 
     def get_composer(self):
         """Select a composer from those available in the data and return as string"""

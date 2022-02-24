@@ -1,70 +1,4 @@
 """Module for generating a reflection dataset."""
-from RNG import RNG
-
-rng = RNG()
-
-
-def get_reflections(count):
-    """Generate the specified number of random reflections."""
-    amplitudes = [rng.get_amplitude() for _ in range(count)]
-    delays = [rng.get_delay() for _ in range(count)]
-    zeniths = [rng.get_zenith() for _ in range(count)]
-    azimuths = [rng.get_azimuth(zenith=zeniths[i]) for i in range(count)]
-    return zeniths, azimuths, amplitudes, delays
-
-
-def generate_dataset_recipe(count):
-    """Generate a random dataset of the specified size."""
-    import pandas as pd
-    from data_loader import list_anechoic_data
-    from pydub import AudioSegment
-
-    ls = {k: len(AudioSegment.from_mp3(list_anechoic_data()[k][0])) for k in list_anechoic_data().keys()}
-
-    composers = [rng.get_composer() for _ in range(count)]
-    part_counts = [rng.get_part_count(composers[i]) for i in range(count)]
-    parts = [rng.get_parts(composer=composers[i], part_count=part_counts[i]) for i in range(count)]
-    offsets = [rng.get_offset(ls[composers[i]]) for i in range(count)]
-    zeniths = [rng.get_zenith() for _ in range(count)]
-    azimuths = [rng.get_azimuth(zenith=zeniths[i]) for i in range(count)]
-    reverb_times = [rng.get_time() for _ in range(count)]
-    reverb_delays = [rng.get_delay() for _ in range(count)]
-    reverb_amplitudes = [rng.rng.uniform(0, 0.05) for _ in range(count)]
-    reflection_counts = [rng.get_reflection_count() for _ in range(count)]
-    reflection_zeniths = []
-    reflection_azimuths = []
-    reflection_amplitudes = []
-    reflection_delays = []
-
-    for i in range(count):
-        zenith, azimuth, amplitude, delay = get_reflections(reflection_counts[i])
-        reflection_zeniths.append(zenith)
-        reflection_azimuths.append(azimuth)
-        reflection_amplitudes.append(amplitude)
-        reflection_delays.append(delay)
-
-    file_paths = [generate_filepath(composers[i], part_counts[i], zeniths[i], azimuths[i]) for i in range(count)]
-
-    df = pd.DataFrame({
-        'zenith': zeniths,
-        'azimuth': azimuths,
-        'composer': composers,
-        'part_count': part_counts,
-        'parts': parts,
-        'offset': offsets,
-        'duration': [rng.duration for _ in range(count)],
-        'reverb_time': reverb_times,
-        'reverb_delay': reverb_delays,
-        'reverb_amplitude': reverb_amplitudes,
-        'reflection_count': reflection_counts,
-        'reflection_amplitude': reflection_amplitudes,
-        'reflection_delay': reflection_delays,
-        'reflection_zenith': reflection_zeniths,
-        'reflection_azimuth': reflection_azimuths,
-        'filepath': file_paths
-    })
-
-    return df
 
 
 def generate_filepath(composer, part_count, zenith, azimuth):
@@ -73,19 +7,61 @@ def generate_filepath(composer, part_count, zenith, azimuth):
     return f'{composer}_p{part_count:02d}_a{azimuth:03d}_e{zenith:03d}'
 
 
-def generate_signal_raw(parts, filepath):
-    """Generate a raw direct signal by mixing the parts."""
+def write_recipe(recipe, path='data/', file_type='csv'):
+    """Write the recipe to a file."""
     import os
     from pathlib import Path
-    from pydub import AudioSegment
-    from transforms import mix_parts
 
-    filepath = Path("data/reflections/raw") / f'{filepath}_raw.wav'
+    path = Path(path) / f'recipe.{file_type}'
 
-    if os.path.isfile(filepath):
-        return AudioSegment.from_wav(filepath)
+    if not os.path.isdir(path.parents[1]):
+        os.mkdir(path.parents[1])
+    if not os.path.isdir(path.parents[0]):
+        os.mkdir(path.parents[0])
 
-    return write_file(mix_parts(parts), filepath.__str__())
+    if file_type == 'csv':
+        recipe.to_csv(path, index=False)
+    if file_type == 'json':
+        recipe.to_json(path, orient='records', lines=True)
+
+    return path.__str__()
+
+
+def read_recipe(path):
+    """Read the recipe from a file."""
+    import pandas as pd
+
+    if path.endswith('.csv'):
+        return pd.read_csv(path, converters={'parts': lambda x: x.strip('[]').replace("'", "").split(', ')})
+    if path.endswith('.json'):
+        return pd.read_json(path, orient='records', lines=True)
+
+
+def write_file(a, filepath):
+    """Write a file to disk."""
+    import os
+    from pathlib import Path
+
+    filepath = Path(filepath)
+    if not os.path.isdir(filepath.parents[2]):
+        print(f"\tMaking directory {filepath.parents[2]}")
+
+    if not os.path.isdir(filepath.parents[1]):
+        print(f'\tMaking directory {filepath.parents[1]}')
+        os.mkdir(Path(filepath.parents[1]))
+
+    if not os.path.isdir(filepath.parents[0]):
+        print(f'\tMaking directory {filepath.parents[0]}')
+        os.mkdir(Path(filepath.parents[0]))
+
+    if not os.path.isfile(filepath):
+        print(f'\tMaking file {filepath}')
+        if ".wav" == filepath.suffix:
+            a.export(filepath, format=filepath.suffix.strip("."))
+        else:
+            a.savefig(filepath, format=filepath.suffix.strip("."))
+
+    return a
 
 
 def generate_signal_hrtf(x, zenith, azimuth, filepath):
@@ -101,6 +77,21 @@ def generate_signal_hrtf(x, zenith, azimuth, filepath):
         return AudioSegment.from_wav(filepath)
 
     return write_file(apply_hrtf(x, zenith, azimuth), filepath.__str__())
+
+
+def generate_signal_raw(parts, filepath):
+    """Generate a raw direct signal by mixing the parts."""
+    import os
+    from pathlib import Path
+    from pydub import AudioSegment
+    from transforms import mix_parts
+
+    filepath = Path("data/reflections/raw") / f'{filepath}_raw.wav'
+
+    if os.path.isfile(filepath):
+        return AudioSegment.from_wav(filepath)
+
+    return write_file(mix_parts(parts), filepath.__str__())
 
 
 def generate_signal_reflection(x, count, amplitudes, delays, zeniths, azimuths, filepath):
@@ -160,7 +151,7 @@ def generate_signal_noise(x, filepath):
     if os.path.isfile(filepath):
         return AudioSegment.from_wav(filepath)
 
-    return write_file(adjust_signal_to_noise(x, -30), filepath.__str__())
+    return write_file(adjust_signal_to_noise(x, -60), filepath.__str__())
 
 
 def generate_signal_trimmed(x, offset, duration, filepath):
@@ -177,7 +168,8 @@ def generate_signal_trimmed(x, offset, duration, filepath):
     return write_file(x[offset:offset + duration * 1000], filepath.__str__())
 
 
-def generate_room_impulse(zenith, azimuth, reflection_count, zeniths, azimuths, delays, amplitudes, amplitude, delay,
+def generate_room_impulse(zenith, azimuth, reflection_count, zeniths, azimuths, delays, amplitudes, amplitude,
+                          delay,
                           time, duration, filepath):
     """
     Generate the room impulse response by applying an HRTF, reflections, and reverberation to a 'click'
@@ -236,7 +228,8 @@ def generate_room_impulse(zenith, azimuth, reflection_count, zeniths, azimuths, 
         plt.close()
 
 
-def generate_plot_sample(zenith, azimuth, zeniths, azimuths, delays, amplitudes, amplitude, delay, time, filepath):
+def generate_plot_sample(zenith, azimuth, zeniths, azimuths, delays, amplitudes, amplitude, delay, time,
+                         filepath):
     """Plot the sample."""
     import os
     from pathlib import Path
@@ -580,36 +573,6 @@ def generate_plot_cepbimo(x, filepath):
         plt.close()
 
 
-def write_recipe(recipe, path='data/', file_type='csv'):
-    """Write the recipe to a file."""
-    import os
-    from pathlib import Path
-
-    path = Path(path) / f'recipe.{file_type}'
-
-    if not os.path.isdir(path.parents[1]):
-        os.mkdir(path.parents[1])
-    if not os.path.isdir(path.parents[0]):
-        os.mkdir(path.parents[0])
-
-    if file_type == 'csv':
-        recipe.to_csv(path, index=False)
-    if file_type == 'json':
-        recipe.to_json(path, orient='records', lines=True)
-
-    return path.__str__()
-
-
-def read_recipe(path):
-    """Read the recipe from a file."""
-    import pandas as pd
-
-    if path.endswith('.csv'):
-        return pd.read_csv(path, converters={'parts': lambda x: x.strip('[]').replace("'", "").split(', ')})
-    if path.endswith('.json'):
-        return pd.read_json(path, orient='records', lines=True)
-
-
 def make_recipe(recipe):
     """Make the recipe specified."""
     from Cepbimo import Cepbimo
@@ -690,7 +653,8 @@ def make_recipe(recipe):
     print('Finished plotting summation:\n')
 
     print('Start adjusting signal-to-noise ratio:')
-    recipe['noise'] = recipe.apply(lambda row: generate_signal_noise(row['summation'], row['filepath']), axis=1)
+    recipe['noise'] = recipe.apply(lambda row: generate_signal_noise(row['summation'], row['filepath']),
+                                   axis=1)
     print('Finished adjusting signal-to-noise ratio:\n')
 
     print('Start plotting noise:')
@@ -738,41 +702,118 @@ def make_recipe(recipe):
     return recipe
 
 
-def write_file(a, filepath):
-    """Write a file to disk."""
-    import os
-    from pathlib import Path
+class DataGenerator:
+    """Dataset generator
 
-    filepath = Path(filepath)
-    if not os.path.isdir(filepath.parents[2]):
-        print(f"\tMaking directory {filepath.parents[2]}")
+    Methods:
 
-    if not os.path.isdir(filepath.parents[1]):
-        print(f'\tMaking directory {filepath.parents[1]}')
-        os.mkdir(Path(filepath.parents[1]))
+    get_reflections()
+    generate_dataset_recipe()
+    generate()
 
-    if not os.path.isdir(filepath.parents[0]):
-        print(f'\tMaking directory {filepath.parents[0]}')
-        os.mkdir(Path(filepath.parents[0]))
+    Constructors:
 
-    if not os.path.isfile(filepath):
-        print(f'\tMaking file {filepath}')
-        if ".wav" == filepath.suffix:
-            a.export(filepath, format=filepath.suffix.strip("."))
-        else:
-            a.savefig(filepath, format=filepath.suffix.strip("."))
+    __init__()
 
-    return a
+    Properties (readonly):
+    sample_count, rng
+    """
+
+    def __init__(self, sample_count, rng=None):
+        """Constructor.
+        
+        Arguments:
+        
+        sample_count, rng
+        """
+        if rng is None:
+            from RNG import RNG
+            rng = RNG()
+        self.rng = rng
+        self.sample_count = sample_count
+
+    def get_reflections(self, count):
+        rng = self.rng
+        """Generate the specified number of random reflections."""
+        amplitudes = [rng.get_amplitude() for _ in range(count)]
+        delays = [rng.get_delay() for _ in range(count)]
+        zeniths = [rng.get_zenith() for _ in range(count)]
+        azimuths = [rng.get_azimuth(zenith=zeniths[i]) for i in range(count)]
+        return zeniths, azimuths, amplitudes, delays
+
+    def generate_dataset_recipe(self):
+        """Generate a random dataset of the specified size."""
+        rng = self.rng
+        sample_count = self.sample_count
+        import pandas as pd
+        from data_loader import list_anechoic_data
+        from pydub import AudioSegment
+
+        ls = {k: len(AudioSegment.from_mp3(list_anechoic_data()[k][0])) for k in list_anechoic_data().keys()}
+
+        composers = [rng.get_composer() for _ in range(sample_count)]
+        part_counts = [rng.get_part_count(composers[i]) for i in range(sample_count)]
+        parts = [rng.get_parts(composer=composers[i], part_count=part_counts[i]) for i in range(sample_count)]
+        offsets = [rng.get_offset(ls[composers[i]]) for i in range(sample_count)]
+        zeniths = [rng.get_zenith() for _ in range(sample_count)]
+        azimuths = [rng.get_azimuth(zenith=zeniths[i]) for i in range(sample_count)]
+        reverb_times = [rng.get_time() for _ in range(sample_count)]
+        reverb_delays = [rng.get_delay() for _ in range(sample_count)]
+        reverb_amplitudes = [rng.rng.uniform(0, 0.05) for _ in range(sample_count)]
+        reflection_counts = [rng.get_reflection_count() for _ in range(sample_count)]
+        reflection_zeniths = []
+        reflection_azimuths = []
+        reflection_amplitudes = []
+        reflection_delays = []
+
+        for i in range(sample_count):
+            zenith, azimuth, amplitude, delay = self.get_reflections(reflection_counts[i])
+            reflection_zeniths.append(zenith)
+            reflection_azimuths.append(azimuth)
+            reflection_amplitudes.append(amplitude)
+            reflection_delays.append(delay)
+
+        file_paths = [generate_filepath(composers[i], part_counts[i], zeniths[i], azimuths[i]) for i in
+                      range(sample_count)]
+
+        df = pd.DataFrame({
+            'zenith': zeniths,
+            'azimuth': azimuths,
+            'composer': composers,
+            'part_count': part_counts,
+            'parts': parts,
+            'offset': offsets,
+            'duration': [rng.duration for _ in range(sample_count)],
+            'reverb_time': reverb_times,
+            'reverb_delay': reverb_delays,
+            'reverb_amplitude': reverb_amplitudes,
+            'reflection_count': reflection_counts,
+            'reflection_amplitude': reflection_amplitudes,
+            'reflection_delay': reflection_delays,
+            'reflection_zenith': reflection_zeniths,
+            'reflection_azimuth': reflection_azimuths,
+            'filepath': file_paths
+        })
+
+        return df
+
+    def generate(self):
+        """Start generator."""
+        recipe_path = "data/"
+        recipe = self.generate_dataset_recipe()
+        recipe_path = write_recipe(recipe, path=recipe_path, file_type="json")
+        recipe = read_recipe(recipe_path)
+        dataset = make_recipe(recipe)
+        return dataset
 
 
-def generate_dataset(count):
-    recipe_path = "data/"
-    recipe = generate_dataset_recipe(count)
-    recipe_path = write_recipe(recipe, path=recipe_path, file_type="json")
-    recipe = read_recipe(recipe_path)
-    dataset = make_recipe(recipe)
-    return dataset
+def demo_data_generator():
+    """Demonstrate DataGenerator usage."""
+    from RNG import RNG
+    rng = RNG()
+    dg = DataGenerator(10, rng).generate()
+    print(dg)
 
 
 if __name__ == '__main__':
-    ds = generate_dataset(10)
+    demo_data_generator()
