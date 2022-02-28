@@ -106,48 +106,48 @@ class DataPicker:
     def make_sidebar(self):
         from ipywidgets import widgets
         from data_loader import get_zeniths, get_azimuths
-
+        print('seed picker')
         seed_picker = self.make_picker('RNG seed', self.make_widget(
             widgets.IntSlider(min=0, max=int('0xffffff', 0), value=(int(self.props['seed'], 0)), description='Seed',
                               continuous_update=False, readout_format='x'), 'seed'))
-
+        print('sample picker')
         sample_picker = self.make_picker('Number of samples', self.make_widget(
             widgets.IntSlider(min=1, max=100, value=self.props['sample_count'], description='Samples',
                               continuous_update=False), 'sample_count'))
-
+        print('duration picker')
         duration_picker = self.make_picker('Sample duration in seconds', self.make_widget(
             widgets.IntSlider(min=10, max=30, value=self.props['duration'], description='Duration',
                               continuous_update=False), 'duration'))
-
+        print('zenith picker')
         zmin, zmax = self.props['zenith_limits']
         zeniths = get_zeniths(zmin, zmax)
         zenith_picker = self.make_picker(f'Zenith range in {self.degree_text}', self.make_widget(
             widgets.SelectionRangeSlider(options=zeniths, index=(0, len(zeniths) - 1),
                                          description=f'Zenith{self.degree_text}', continuous_update=False),
             'zenith_limits'))
-
+        print('azimuth picker')
         amin, amax = self.props['azimuth_limits']
         azimuths = get_azimuths(amin, amax)
         azimuth_picker = self.make_picker(f'Azimuth range in {self.degree_text}', self.make_widget(
             widgets.SelectionRangeSlider(options=azimuths, index=(0, len(azimuths) - 1),
                                          description=f'Azimuth{self.degree_text}', continuous_update=False),
             'azimuth_limits'))
-
+        print('reflection picker')
         reflection_picker = self.make_picker('Number of reflections', self.make_widget(
             widgets.IntRangeSlider(min=self.props['reflection_limits'][0], max=self.props['reflection_limits'][1],
                                    value=(self.props['reflection_limits'][0], self.props['reflection_limits'][1]),
                                    description='Reflections', continuous_update=False), 'reflection_limits'))
-
+        print('delay picker')
         delay_picker = self.make_picker('Reflection/reverberation delay range in ms', self.make_widget(
             widgets.IntRangeSlider(mins=self.props['delay_limits'][0], max=self.props['delay_limits'][1],
                                    value=(self.props['delay_limits'][0], self.props['delay_limits'][1]),
                                    description='Delay', contiuous_update=False), 'delay_limits'))
-
+        print('time picker')
         time_picker = self.make_picker('Reverberation time range in s', self.make_widget(
             widgets.IntRangeSlider(min=self.props['time_limits'][0], max=self.props['time_limits'][1],
                                    value=(self.props['time_limits'][0], self.props['time_limits'][1]),
                                    description='Time', continuous_update=False), 'time_limits'))
-
+        print('verbose picker')
         verbose_picker = self.make_picker('Verbose output **Warning:**', self.make_widget(
             widgets.RadioButtons(options=[False, True], value=self.props['verbose'], description='Verbose'),
             'verbose'))
