@@ -175,8 +175,6 @@ class DataPicker:
 
                 filepath = Path('data/reflections')
                 shutil.make_archive(f'{(filepath / "reflections").__str__()}', 'zip', filepath)
-                with open(filepath / 'reflections.zip', 'rb') as f:
-                    payload = base64.b64encode(f.read()).decode()
 
                 html = f'<a download="reflections.zip" href="{(filepath / "reflections.zip").__str__()}" download>Download dataset</a>'
                 display(HTML(html))
@@ -229,7 +227,10 @@ class DataPicker:
 
     def make_parameters_tab(self):
         from ipywidgets import widgets
-        ingredients = self.ingredients.iloc[0]
+        if self.ingredients is None:
+            ingredients = self.props
+        else:
+            ingredients = self.ingredients.iloc[0]
         html = '''
         <h1>Dataset parameters</h1>
         <p>Here you will find a list of the parameters used to generate the dataset. The data generator can be 
