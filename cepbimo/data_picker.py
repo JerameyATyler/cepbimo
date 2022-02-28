@@ -98,7 +98,10 @@ class DataPicker:
         output = widgets.Output()
 
         with output:
-            self.df, self.ingredients = dg.generate(verbose=True)
+            df, ingredients = dg.generate(verbose=True)
+            print(df, ingredients)
+            self.df = df
+            self.ingredients = ingredients
 
         return widgets.Box([output], layout=widgets.Layout(height='15%', overflow_y='auto', border='thin solid white',
                                                            max_height='100px'))
