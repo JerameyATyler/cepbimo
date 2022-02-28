@@ -76,11 +76,11 @@ def apply_reverberation(x, amplitude, delay, time):
     return y
 
 
-def mix_parts(parts):
+def mix_parts(parts, offset, duration):
     """Mix the parts into a signal."""
     from pydub import AudioSegment
 
-    sounds = [AudioSegment.from_mp3(p) for p in parts]
+    sounds = [AudioSegment.from_mp3(p)[offset:offset + duration * 1000] for p in parts]
     t = max([len(p) for p in sounds])
 
     s = AudioSegment.silent(duration=t)

@@ -19,7 +19,7 @@ class Cepbimo:
         from cross_correlations import xcorr, ncorr
 
         offset = 1024
-        window_length = offset * 64 * 4
+        window_length = offset * 64 * 2
 
         self.fs = x.frame_rate
         self.lag = (1 * int(self.fs / 1000.))

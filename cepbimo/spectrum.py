@@ -30,7 +30,6 @@ def cepstrum(x, fs, offset, window_length):
     import numpy as np
 
     w = hamming(window_length, False)
-
     x = x[offset:offset + window_length] * w
 
     number_unique_points = int(np.ceil((window_length + 1) / 2))
