@@ -72,7 +72,8 @@ def play_audio(x):
     left, right = split_channels(x)
 
     y = left
+
     if x.channels == 2:
-        y = np.array([left, right]).transpose()
+        y = np.array([left, right])
 
     return Audio(y, rate=fs)

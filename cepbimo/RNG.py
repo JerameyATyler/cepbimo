@@ -23,13 +23,13 @@ class RNG:
     """
 
     def __init__(self,
-                 seed='0xecc0',
-                 duration=20,
+                 seed='0xec0ec0',
+                 duration=10,
                  delay_limits=(0, 60),
                  time_limits=(1, 8),
                  reflection_limits=(4, 8),
-                 zenith_limits=None,
-                 azimuth_limits=None):
+                 zenith_limits=(-40, 90),
+                 azimuth_limits=(0, 360)):
         """Constructor.
 
         Arguments:

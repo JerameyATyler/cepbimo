@@ -7,7 +7,7 @@ color_palette = 'viridis'
 
 sns.set_theme(palette=color_palette)
 
-figure_dimensions = dict(square=(10, 10), wrect=(12, 5), hrect=(5, 12), refs=(10, 12))
+figure_dimensions = dict(square=(6, 6), wrect=(8, 4), hrect=(4, 8), refs=(6, 8))
 
 label_font = dict(size=14, name='Courier', family='serif', style='italic', weight='bold')
 suptitle_font = dict(size=20, name='Courier', family='serif', style='normal', weight='bold')
@@ -705,7 +705,7 @@ def plot_zenith_range(z_min, z_max, **kwargs):
                 fontsize=20)
 
     ax.grid(True)
-    area = plt.fill_between(theta, 0, 1, alpha=0.75, label='area', color=cmap);
+    area = plt.fill_between(theta, 0, 1, alpha=0.75, label='area', color=cmap)
     return plt, fig, ax, area
 
 
