@@ -193,6 +193,7 @@ class DataPicker:
         zenith_limits = self.props['zenith_limits']
         azimuth_limits = self.props['azimuth_limits']
         sample_count = self.props['sample_count']
+        verbose = self.props['verbose']
 
         rng = RNG(seed=seed, duration=duration, delay_limits=delay_limits, time_limits=time_limits,
                   reflection_limits=reflection_limits, zenith_limits=zenith_limits, azimuth_limits=azimuth_limits)
@@ -201,7 +202,7 @@ class DataPicker:
         output = widgets.Output()
 
         with output:
-            self.df, self.ingredients = dg.generate(verbose=True)
+            self.df, self.ingredients = dg.generate(verbose=verbose)
 
         return widgets.Box([output], layout=widgets.Layout(overflow_y='auto', border='thin solid white',
                                                            max_height='100px'))
