@@ -26,7 +26,7 @@ def list_anechoic_data(console=False):
 
     for c in a.keys():
         a[c] = [(path / c / f).__str__() for f in os.listdir(path / c) if
-                not f.endswith('5.mp3') and not f.endswith('8.mp3')]
+                not f.endswith('5.mp3') and not f.endswith('8.mp3') and f.endswith('.mp3')]
 
     if console:
         for c in a.keys():

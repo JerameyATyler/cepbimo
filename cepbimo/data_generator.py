@@ -35,7 +35,7 @@ class DataGenerator:
         self.sample_count = sample_count
         self.output_directory = output_directory
         self.recipe = None
-        self.chunk_size = 100
+        self.chunk_size = 10
 
         path = Path(output_directory)
         if not os.path.isdir(path):
