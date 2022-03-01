@@ -1,1 +1,1 @@
-{"seed":{"0":"0xec0ec0"},"duration":{"0":20},"delay_limits":{"0":[1,60]},"time_limits":{"0":[1,8]},"reflection_limits":{"0":[4,8]},"zenith_limits":{"0":[-40,90]},"azimuth_limits":{"0":[36,180]},"sample_count":{"0":1}}
+{"seed":{"0":"0xec0ec0"},"duration":{"0":20},"delay_limits":{"0":[1,60]},"time_limits":{"0":[1,8]},"reflection_limits":{"0":[4,8]},"zenith_limits":{"0":[-40,90]},"azimuth_limits":{"0":[-180,180]},"sample_count":{"0":2}}
