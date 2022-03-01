@@ -4,5 +4,7 @@
 #
 #    pip-compile
 #
+numpy==1.22.2
+    # via -r requirements.in
 pydub==0.25.1
     # via -r requirements.in
