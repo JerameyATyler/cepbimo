@@ -1,0 +1,15 @@
+name: cepbimo
+channels:
+  - defaults
+dependencies:
+  - numpy
+  - matplotlib
+  - pandas
+  - jupyter
+  - pydub
+  - scipy
+  - seaborn
+  - ipywidgets
+  - nodejs
+  - pytables
+prefix: C:\Users\Jeram\miniconda3\envs\cepbimo
