@@ -1,7 +1,7 @@
 class DataPicker:
 
     def __init__(self, seed='0xec0ec0', duration=20, delay_limits=(1, 60), time_limits=(1, 8),
-                 reflections_limits=(4, 8), zenith_limits=(-40, 90), azimuth_limits=(-180, 180), sample_count=1,
+                 reflections_limits=(4, 8), zenith_limits=(-40, 90), azimuth_limits=(0, 360), sample_count=1,
                  verbose=True):
         from ipywidgets import widgets
         self.degree_text = r'$^{\circ}$'

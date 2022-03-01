@@ -13,4 +13,5 @@ dependencies:
   - nodejs
   - pytables
   - ffmpeg
+  - dask
 prefix: C:\Users\Jeram\miniconda3\envs\cepbimo
