@@ -12,4 +12,5 @@ dependencies:
   - ipywidgets
   - nodejs
   - pytables
+  - ffmpeg
 prefix: C:\Users\Jeram\miniconda3\envs\cepbimo
