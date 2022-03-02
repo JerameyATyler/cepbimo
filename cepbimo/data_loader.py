@@ -112,5 +112,15 @@ def get_hrtfs(amin=None, amax=None, zmin=None, zmax=None):
     return zes, azi
 
 
+def list_anechoic_lengths(composer=None):
+    from pydub import AudioSegment
+
+    if composer is not None:
+        composers = [composer]
+    else:
+        composers = sorted(list(list_anechoic_data().keys()))
+    return {c: len(AudioSegment.from_mp3(list_anechoic_data()[c][0])) for c in composers}
+
+
 if __name__ == '__main__':
-    print(get_azimuths(0, 30))
+    print(list_anechoic_lengths())

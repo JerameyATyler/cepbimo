@@ -136,5 +136,9 @@ cepbimo/data/anechoic/*
 cepbimo/data/hrtf/*
 cepbimo/data/demo
 cepbimo/data/*.zip
+cepbimo/data
 
 # Dataset
+
+# Dask
+cepbimo/dask-worker-space

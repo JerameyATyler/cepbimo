@@ -1,192 +1,138 @@
+import shutil
+
+
 class DataPicker:
 
-    def __init__(self, seed='0xec0ec0', duration=20, delay_limits=(1, 60), time_limits=(1, 8),
-                 reflections_limits=(4, 8), zenith_limits=(-40, 90), azimuth_limits=(0, 360), sample_count=1,
-                 verbose=True):
-        from ipywidgets import widgets
-        self.degree_text = r'$^{\circ}$'
-        self.layouts = dict(
-            row=widgets.Layout(display='flex', flex_flow='row', justify_content='space-between',
-                               border='thin solid white'),
-            column=widgets.Layout(display='flex', flex_flow='column', align_items='stretch', border='thin solid white'),
-            container_row=widgets.Layout(display='flex', flex_flow='row', justify_content='space-between',
-                                         border='thick solid white'),
-            container_column=widgets.Layout(display='flex', flex_flow='column', align_items='stretch',
-                                            border='thick solid white'),
-            item_row=widgets.Layout(display='flex', flex_flow='row', justify_content='center', width='100%',
-                                    max_width='90%',
-                                    height='100%', border='thin solid white'),
-            item_column=widgets.Layout(display='flex', flex_flow='column', align_items='center', width='100%',
-                                       height='auto', border='thin solid white')
-        )
+    def __init__(self):
+        from RNG import RNG
+        from data_generator import DataGenerator
+
+        rng = RNG()
+        seed = rng.seed
+        duration = rng.duration
+        delay_limits = rng.delay_limits
+        time_limits = rng.time_limits
+        reflection_limits = rng.reflection_limits
+        zenith_limits = rng.zenith_limits
+        azimuth_limits = rng.azimuth_limits
+        sample_count = 1
+        verbose = True
+
+        dg = DataGenerator(sample_count, 'data/sample_data', rng=rng, verbose=verbose)
+        ingredients, recipe = dg.generate()
+
+        sample_count = 10
+        verbose = False
         self.props = dict(
             seed=seed,
             duration=duration,
             delay_limits=delay_limits,
             time_limits=time_limits,
-            reflection_limits=reflections_limits,
+            reflection_limits=reflection_limits,
+            zenith_limits=zenith_limits,
+            azimuth_limits=azimuth_limits,
+            sample_count=sample_count,
+            verbose=verbose
+        )
+        self.sample_data = recipe
+        self.sample_parameters = ingredients
+
+        self.params = dict(
+            seed=seed,
+            duration=duration,
+            delay_limits=delay_limits,
+            time_limits=time_limits,
+            reflection_limits=reflection_limits,
             zenith_limits=zenith_limits,
             azimuth_limits=azimuth_limits,
             sample_count=sample_count,
             verbose=verbose
         )
 
-        self.df = None
-        self.ingredients = None
-        self.download_link = ''
-
-    def on_change(self, prop, value):
-        self.props[prop] = value
-
-    def make_player(self, s):
-        from IPython.display import display
+    def sample_viewer(self):
+        from ipywidgets import widgets
         from utils import play_audio
-        from ipywidgets import widgets
-        output = widgets.Output()
-        with output:
-            display(play_audio(s))
-        return output
-
-    def make_picker(self, label, widget):
-        from ipywidgets import widgets
-        label = self.make_label(label)
-        return widgets.Box([label, widget], layout=self.layouts['column'])
-
-    def make_label(self, text):
-        from ipywidgets import widgets
-        return widgets.Label(text, layout=self.layouts['item_row'])
-
-    def make_widget(self, selector, prop):
-        from ipywidgets import widgets
-        self.make_observer(selector, prop)
-        return widgets.Box([selector], layout=self.layouts['item_row'])
-
-    def make_observer(self, selector, prop):
-        selector.observe((lambda value: self.on_change(prop, value['new'])), 'value')
-
-    def on_click(self, b):
+        from pydub import AudioSegment
         from pathlib import Path
-        from ipywidgets import widgets
-        import shutil
 
-        b.disabled = True
-        self.make_dataset()
+        def format_html(title, text):
+            return widgets.HTML(value=f'<h1>{title}</h1><p>{text}</p>')
 
-        filepath = Path('data/reflections')
+        def format_audio(path):
+            output = widgets.Output()
+            audio = AudioSegment.from_wav(path)
+            output.append_display_data(play_audio(audio))
+            return output
 
-        shutil.make_archive(f'{filepath.__str__()}', 'zip', filepath)
+        def format_image(path):
+            with open(path, 'rb') as file:
+                return widgets.Image(value=file.read(), format='png', layout=dict(max_width='30%'))
 
-        return widgets.HTML(value='poop')
+        df = self.sample_data.iloc[0]
+        directory = Path('data/sample_data/reflections/')
+        filename = df["filepath"]
 
-    def make_sample_data(self):
-        from RNG import RNG
-        from ipywidgets import widgets
-        from data_generator import DataGenerator
+        raw_html = format_html('Raw signal', 'An anechoic signal.')
+        raw_audio = format_audio(str(directory / f'raw/{filename}_raw.wav'))
+        raw_plot = format_image(str(directory / f'raw/{filename}.png'))
 
-        seed = self.props['seed']
-        duration = self.props['duration']
-        delay_limits = self.props['delay_limits']
-        time_limits = self.props['time_limits']
-        reflection_limits = self.props['reflection_limits']
-        zenith_limits = self.props['zenith_limits']
-        azimuth_limits = self.props['azimuth_limits']
+        hrtf_html = format_html('HRTF', 'A head-related transfer function (HRTF) is applied to the signal.')
+        hrtf_audio = format_audio(str(directory / f'hrtf/{filename}_hrtf.wav'))
+        hrtf_plot = format_image(str(directory / f'hrtf/{filename}_hrtf.png'))
 
-        rng = RNG(seed=seed, duration=duration, delay_limits=delay_limits, time_limits=time_limits,
-                  reflection_limits=reflection_limits, zenith_limits=zenith_limits, azimuth_limits=azimuth_limits)
-        dg = DataGenerator(1, 'data/sample_data/', rng)
+        reflection_html = format_html('Reflections', 'Reflections are generated with amplitude at zenith elevation,'
+                                                     ' azimuth rotation, and delay distance.')
+        reflection_audio = format_audio(str(directory / f'reflections/{filename}_reflections.wav'))
+        reflection_plot = format_image(str(directory / f'reflections/{filename}_reflections.png'))
 
-        output = widgets.Output()
+        reverb_html = format_html('Reverberation', 'Reverberation is applied with amplitude, delay, and time.')
+        reverb_audio = format_audio(str(directory / f'reverberation/{filename}_reverberation.wav'))
+        reverb_plot = format_image(str(directory / f'reverberation/{filename}_reverberation.png'))
 
-        with output:
-            df, ingredients = dg.generate(verbose=True)
-            self.df = df
-            self.ingredients = ingredients
+        summation_html = format_html('Summation', 'The signal with reflections and reverberation are summed together.')
+        summation_audio = format_audio(str(directory / f'summation/{filename}_summation.wav'))
+        summation_plot = format_image(str(directory / f'summation/{filename}_summation.png'))
 
+        noise_html = format_html('Noise', 'The signal-to-noise ratio is adjusted by -60dB.')
+        noise_audio = format_audio(str(directory / f'noise/{filename}_noise.wav'))
+        noise_plot = format_image(str(directory / f'noise/{filename}_noise.png'))
 
-        return widgets.Box([output], layout=widgets.Layout(height='15%', overflow_y='auto', border='thin solid white',
-                                                           max_height='100px'))
+        sample_html = format_html('Sample', 'A data point in the dataset.')
+        sample_audio = format_audio(str(directory / f'samples/{filename}.wav'))
+        sample_plot = format_image(str(directory / f'samples/{filename}.png'))
 
-    def make_sidebar(self):
-        from ipywidgets import widgets
-        from data_loader import get_zeniths, get_azimuths
-        seed_picker = self.make_picker('RNG seed', self.make_widget(
-            widgets.IntSlider(min=0, max=int('0xffffff', 0), value=(int(self.props['seed'], 0)), description='Seed',
-                              continuous_update=False, readout_format='x'), 'seed'))
-        sample_picker = self.make_picker('Number of samples', self.make_widget(
-            widgets.IntSlider(min=1, max=100, value=self.props['sample_count'], description='Samples',
-                              continuous_update=False), 'sample_count'))
-        duration_picker = self.make_picker('Sample duration in seconds', self.make_widget(
-            widgets.IntSlider(min=10, max=30, value=self.props['duration'], description='Duration',
-                              continuous_update=False), 'duration'))
-        zmin, zmax = self.props['zenith_limits']
-        zeniths = get_zeniths(zmin, zmax)
-        zenith_picker = self.make_picker(f'Zenith range in {self.degree_text}', self.make_widget(
-            widgets.SelectionRangeSlider(options=zeniths, index=(0, len(zeniths) - 1),
-                                         description=f'Zenith{self.degree_text}', continuous_update=False),
-            'zenith_limits'))
-        amin, amax = self.props['azimuth_limits']
-        azimuths = get_azimuths(amin, amax)
-        azimuth_picker = self.make_picker(f'Azimuth range in {self.degree_text}', self.make_widget(
-            widgets.SelectionRangeSlider(options=azimuths, index=(0, len(azimuths) - 1),
-                                         description=f'Azimuth{self.degree_text}', continuous_update=False),
-            'azimuth_limits'))
-        reflection_picker = self.make_picker('Number of reflections', self.make_widget(
-            widgets.IntRangeSlider(min=self.props['reflection_limits'][0], max=self.props['reflection_limits'][1],
-                                   value=(self.props['reflection_limits'][0], self.props['reflection_limits'][1]),
-                                   description='Reflections', continuous_update=False), 'reflection_limits'))
-        delay_picker = self.make_picker('Reflection/reverberation delay range in ms', self.make_widget(
-            widgets.IntRangeSlider(mins=self.props['delay_limits'][0], max=self.props['delay_limits'][1],
-                                   value=(self.props['delay_limits'][0], self.props['delay_limits'][1]),
-                                   description='Delay', contiuous_update=False), 'delay_limits'))
-        time_picker = self.make_picker('Reverberation time range in s', self.make_widget(
-            widgets.IntRangeSlider(min=self.props['time_limits'][0], max=self.props['time_limits'][1],
-                                   value=(self.props['time_limits'][0], self.props['time_limits'][1]),
-                                   description='Time', continuous_update=False), 'time_limits'))
-        verbose_picker = self.make_picker('Verbose output **Warning:**', self.make_widget(
-            widgets.RadioButtons(options=[False, True], value=self.props['verbose'], description='Verbose'),
-            'verbose'))
+        cepstrum_html = format_html('Cepstrum', 'The cepstrum of the sample signal.')
+        cepstrum_plot1 = format_image(str(directory / f'cepstrums/{filename}_cepstrum.png'))
+        cepstrum_plot2 = format_image(str(directory / f'cepstrums/{filename}_cepstrum20.png'))
 
+        cepbimo_html = format_html('Cepbimo', 'The cepstral-based binaural model.')
+        cepbimo_plot1 = format_image(str(directory / f'cepbimo/{filename}_cepbimo.png'))
+        cepbimo_plot2 = format_image(str(directory / f'cepbimo/{filename}_binaural_activity_map_2d.png'))
+        cepbimo_plot3 = format_image(str(directory / f'cepbimo/{filename}_binaural_activity_map_3d.png'))
+
+        rir_html = format_html('Room impulse response', 'The response to a stimulus generated by an acoustic space.')
+        rir_audio = format_audio(str(directory / f'rir/{filename}_rir.wav'))
+        rir_plot = format_image(str(directory / f'rir/{filename}_rir.png'))
         return widgets.Box(
-            [seed_picker, sample_picker, duration_picker, zenith_picker, azimuth_picker, reflection_picker,
-             delay_picker, time_picker, verbose_picker],
-            layout=widgets.Layout(display='flex', flex_flow='column', align_items='center', height='auto',
-                                  border='thin solid white'))
+            [raw_html, raw_audio, raw_plot, hrtf_html, hrtf_audio, hrtf_plot, reflection_html, reflection_audio,
+             reflection_plot, reverb_html, reverb_audio, reverb_plot, summation_html, summation_audio, summation_plot,
+             noise_html, noise_audio, noise_plot, sample_html, sample_audio, sample_plot, cepstrum_html, cepstrum_plot1,
+             cepstrum_plot2, cepbimo_html, cepbimo_plot1, cepbimo_plot2, cepbimo_plot3, rir_html, rir_audio, rir_plot],
+            layout=dict(width='100%', height='auto', display='flex', flex_flow='column',
+                        justify_content='space-between', overflow_y='scroll'))
 
-    def make_confirm(self):
-        import base64
-        from pathlib import Path
+    def picker_viewer(self):
+        from data_loader import get_hrtfs
         from ipywidgets import widgets
-        from IPython.display import display, HTML
-        import shutil
 
-        confirm = widgets.Button(description='Confirm and generate', icon='check', tooltip='Confirm and generate')
-        output = widgets.Output()
+        def format_label(text):
+            return widgets.Label(value=text)
 
-        def on_click(b):
-            with output:
-                b.disabled = True
-                display(self.make_dataset())
-
-                filepath = Path('data/reflections')
-                shutil.make_archive(f'{(filepath / "reflections").__str__()}', 'zip', filepath)
-
-                html = f'<a download="reflections.zip" href="{(filepath / "reflections.zip").__str__()}" download>Download dataset</a>'
-                display(HTML(html))
-
-                b.disabled = False
-
-        confirm.on_click(on_click)
-        confirm = widgets.Box([confirm], layout=self.layouts['item_row'])
-
-        return widgets.Box([confirm, output], layout=self.layouts['column'])
-
-    def make_dataset(self):
-        from RNG import RNG
-        from ipywidgets import widgets
-        from data_generator import DataGenerator
+        def format_selector(widget):
+            layout = widgets.Layout(width='100%', height='auto', display='flex', flex_flow='row', align_items='center')
+            return widgets.Box([widget], layout=layout)
 
         seed = self.props['seed']
-        duration = self.props['duration']
         delay_limits = self.props['delay_limits']
         time_limits = self.props['time_limits']
         reflection_limits = self.props['reflection_limits']
@@ -194,351 +140,138 @@ class DataPicker:
         azimuth_limits = self.props['azimuth_limits']
         sample_count = self.props['sample_count']
         verbose = self.props['verbose']
+        zeniths, azimuths = get_hrtfs(amin=azimuth_limits[0], amax=azimuth_limits[1], zmin=zenith_limits[0],
+                                      zmax=zenith_limits[1])
 
-        rng = RNG(seed=seed, duration=duration, delay_limits=delay_limits, time_limits=time_limits,
-                  reflection_limits=reflection_limits, zenith_limits=zenith_limits, azimuth_limits=azimuth_limits)
-        dg = DataGenerator(sample_count, 'data/', rng)
+        def on_change(prop, value):
+            self.props[prop] = value
+
+        seed_label = format_label('RNG seed, hex')
+        seed_selector = widgets.IntSlider(value=int(seed, 0), min=0, max=int('0xffffff', 0), readout_format='x',
+                                          continuous_update=False)
+        seed_selector.observe((lambda value: on_change('seed', hex(value['new']))), 'value')
+
+        delay_label = format_label('Reflection/reverb delay limits, ms')
+        delay_selector = format_selector(
+            widgets.IntRangeSlider(value=delay_limits, min=delay_limits[0], max=delay_limits[1],
+                                   continuous_update=False))
+        delay_selector.observe((lambda value: on_change('delay_limits', value['new'])), 'value')
+
+        time_label = format_label('Reverb time limits, s')
+        time_selector = widgets.IntRangeSlider(value=time_limits, min=time_limits[0], max=time_limits[1],
+                                               continuous_update=False)
+        time_selector.observe((lambda value: on_change('time_limits', value['new'])), 'value')
+
+        reflection_label = format_label('Reflection count')
+        reflection_selector = widgets.IntRangeSlider(value=reflection_limits, min=reflection_limits[0],
+                                                     max=reflection_limits[1], continuous_update=False)
+        reflection_selector.observe((lambda value: on_change('reflection_limits', value['new'])), 'value')
+
+        zenith_label = format_label('Zenith limits')
+        zenith_selector = widgets.SelectionRangeSlider(options=sorted(zeniths), index=(0, len(zeniths) - 1),
+                                                       continuous_update=False)
+        zenith_selector.observe((lambda value: on_change('zenith_limits', value['new'])), 'value')
+
+        azimuth_label = format_label('Azimuth limits')
+        azimuth_selector = widgets.SelectionRangeSlider(options=sorted(azimuths), index=(0, len(azimuths) - 1),
+                                                        continuous_update=False)
+        azimuth_selector.observe((lambda value: on_change('azimuth_limits', value['new'])), 'value')
+
+        sample_label = format_label('Sample count')
+        sample_selector = widgets.BoundedIntText(value=sample_count, min=100, max=10000, step=100,
+                                                 continuous_update=False)
+        sample_selector.observe((lambda value: on_change('sample_count', value['new'])), 'value')
+
+        verbose_label = format_label('Verbose output')
+        verbose_selector = widgets.Checkbox(value=verbose)
+        verbose_selector.observe((lambda value: on_change('verbose', value['new'])), 'value')
+
+        return widgets.Box(
+            [seed_label, seed_selector, delay_label, delay_selector, time_label, time_selector, reflection_label,
+             reflection_selector, zenith_label, zenith_selector, azimuth_label, azimuth_selector, sample_label,
+             sample_selector, verbose_label, verbose_selector],
+            layout=widgets.Layout(width='100%', height='auto', display="flex", flex_flow='column',
+                                  justify_content='center'))
+
+    def review_viewer(self):
+        from ipywidgets import widgets
+
+        seed = self.props['seed']
+        seed_label = widgets.Label(value=f'seed = {seed}')
+        delay_limits = self.props['delay_limits']
+        delay_label = widgets.Label(value=f'delay_limits = {delay_limits}')
+        time_limits = self.props['time_limits']
+        time_label = widgets.Label(value=f'time_limits = {time_limits}')
+        reflection_limits = self.props['reflection_limits']
+        reflection_label = widgets.Label(value=f'reflection_limits = {reflection_limits}')
+        zenith_limits = self.props['zenith_limits']
+        zenith_label = widgets.Label(value=f'zenith_limits = {zenith_limits}')
+        azimuth_limits = self.props['azimuth_limits']
+        azimuth_label = widgets.Label(value=f'azimuth_limits = {azimuth_limits}')
+        sample_count = self.props['sample_count']
+        sample_label = widgets.Label(value=f'sample_count = {sample_count}')
+        verbose = self.props['verbose']
+        verbose_label = widgets.Label(value=f'verbose = {verbose}')
+
+        def on_click(b):
+            b.disabled = True
+            self.params['seed'] = seed
+            self.params['delay_limits'] = delay_limits
+            self.params['time_limits'] = time_limits
+            self.params['reflection_limits'] = reflection_limits
+            self.params['zenith_limits'] = zenith_limits
+            self.params['azimuth_limits'] = azimuth_limits
+            self.params['sample_count'] = sample_count
+            self.params['verbose'] = verbose
+            b.disabled = False
+
+        confirm_button = widgets.Button(description='Confirm', icon='check')
+        confirm_button.on_click(on_click)
+
+        return widgets.Box(
+            [seed_label, delay_label, time_label, reflection_label, zenith_label, azimuth_label, sample_label,
+             verbose_label, confirm_button], layout=widgets.Layout(display='flex', flex_flow='column'))
+
+    def generate_viewer(self):
+        from ipywidgets import widgets
+        from IPython.display import display, HTML
+
+        seed = self.params['seed']
+        duration = self.params['duration']
+        delay_limits = self.params['delay_limits']
+        time_limits = self.params['time_limits']
+        reflection_limits = self.params['reflection_limits']
+        zenith_limits = self.params['zenith_limits']
+        azimuth_limits = self.params['azimuth_limits']
+        sample_count = self.params['sample_count']
+        # verbose = self.params['verbose']
+        verbose = False
 
         output = widgets.Output()
 
-        with output:
-            self.df, self.ingredients = dg.generate(verbose=verbose)
+        def on_click(b):
+            from pathlib import Path
+            from data_generator import DataGenerator
+            from RNG import RNG
 
-        return widgets.Box([output], layout=widgets.Layout(overflow_y='auto', border='thin solid white',
-                                                           max_height='100px'))
+            with output:
+                b.disabled = True
+                rng = RNG(seed=seed, duration=duration, delay_limits=delay_limits, time_limits=time_limits,
+                          reflection_limits=reflection_limits, zenith_limits=zenith_limits,
+                          azimuth_limits=azimuth_limits)
+                dg = DataGenerator(sample_count, 'data/', rng=rng, verbose=verbose)
 
-    def ui(self):
-        from ipywidgets import widgets
+                ingredients, recipe = dg.generate()
+                display(ingredients.head())
+                display(recipe.head())
+                filepath = Path('data/')
+                shutil.make_archive(f'{filepath.__str__()}', 'zip', filepath, 'reflections')
+                html = f'''<a download="reflections.zip" href="{filepath.__str__()}.zip"
+                 download>Download</a>'''
+                display(HTML(html))
+                b.disabled = False
 
-        stdout = self.make_sample_data()
-        sidebar = self.make_sidebar()
-        confirm = self.make_confirm()
+        generate_button = widgets.Button(description='Generate')
+        generate_button.on_click(on_click)
 
-        tabs = self.make_tabs()
-
-        content = widgets.Box([sidebar, tabs], layout=self.layouts['container_row'])
-
-        return widgets.Box([stdout, content, confirm], layout=self.layouts['container_column'])
-
-    def make_parameters_tab(self):
-        from ipywidgets import widgets
-        if self.ingredients is None:
-            ingredients = self.props
-        else:
-            ingredients = self.ingredients.iloc[0]
-        html = '''
-        <h1>Dataset parameters</h1>
-        <p>Here you will find a list of the parameters used to generate the dataset. The data generator can be 
-        customized by adjusting its input arguments. The input arguments can be adjusted using the sliders. Sample
-        output produced by the data generator can be found in the other tabs.</p>
-        ''' + f'''
-        <h3>RNG seed</h3>
-        <p>The <em>RNG seed</em> is a hexidecimal value that is used to consistently generate random numbers. Two 
-        datasets generated with all of the same parameters will be identical however two datasets generated with all of 
-        the same parameters <em>except</em> RNG seed will produce different datasets. The RNG seed used to generate this 
-        sample data is <em><b>{ingredients['seed']}</b></em>.
-        </p>
-        <h3>Number of samples</h3>
-        <p>The <em>number of samples</em> indicates how many data points to generate, currently set to 
-        {ingredients['sample_count']}. </p>
-        <h3>Sample duration</h3>
-        <p>The <em>sample duration in seconds</em> indicates how long each sample data should be seconds, currently set
-        to {ingredients['duration']} seconds. </p>''' + '''
-        <h3>Zenith range in $^{\circ}$</h3>  
-        <p>The <em>zenith range in $^{\circ}$</em> indicates the minimum and maximum zenith (elevation) angles in 
-        degrees that head-related transfer functions (HRTF) generated for the direct signal and reflections.''' + f'''
-        Zeniths are currently set to occur in the range {ingredients['zenith_limits']}</p>''' + '''
-        <h3>Azimuth range in $^{\circ}$</h3>
-        <p>The <em>azimuth range in $^{\circ}$</em> indicates the minimum and maximum azimuth (horizontal rotation) 
-        angle in degrees that HRTFs generated for the direct signal and reflections.''' + f'''
-        Azimuths are currently set to occur in the range {ingredients['azimuth_limits']}</p>
-        </p>
-        <h3>Number of reflections</h3>
-        <p><em>Number of reflections</em> is the limit on the number of reflections to apply to a sample.
-        Currently set to generate between {ingredients['reflection_limits']} reflections.</p>
-        <h3>Reflection/Reverberation delay range in ms</h3>
-        <p><em>Reflection/Reverberation delay range in ms</em> is the length of time that the reflection or 
-        reverberation will lag behind the direct signal.
-        Currently set to generate reflections and reverberations between {ingredients['delay_limits']} milliseconds.</p>
-        <h3>Reverberation time range in s</h3>
-        <p><Reverberation time range in s</em> is the length of time that reverberation will last in seconds.
-        Currently set to generate reverberation times between {ingredients['time_limits']} seconds.</p>
-        <h3>Verbose output</h3>
-        <p><em>Verbose</em> indicates whether or not to produce all possible output (e.g. figures and audio files)
-        or a limited set. 
-        Verbose is currently set to {self.props['verbose']}.</p>
-        '''
-
-        return widgets.HTMLMath(value=html)
-
-    def make_raw_signal_tab(self):
-        from pathlib import Path
-        import os
-        from ipywidgets import widgets
-        from pydub import AudioSegment
-
-        directory = Path('data/sample_data/reflections/raw')
-        filepath = directory / Path(f"{self.df['filepath'][0]}_raw.wav")
-
-        if os.path.isfile(filepath):
-            audio = AudioSegment.from_wav(filepath)
-            player = self.make_player(audio)
-        else:
-            player = widgets.HTML(value='')
-        player = widgets.Box([player], layout=self.layouts['item_row'])
-
-        filepath = directory / Path(f'{self.df["filepath"][0]}_raw_wave.png')
-
-        if os.path.isfile(filepath):
-            with open(filepath, 'rb') as f:
-                image = f.read()
-                image = widgets.Image(value=image, format='png')
-        else:
-            image = widgets.HTML(value='')
-        image = widgets.Box([image], layout=self.layouts['item_row'])
-        return widgets.Box([player, image], layout=self.layouts['container_column'])
-
-    def make_hrtf_tab(self):
-        from pathlib import Path
-        import os
-        from ipywidgets import widgets
-        from pydub import AudioSegment
-
-        directory = Path('data/sample_data/reflections/hrtf')
-        filepath = directory / Path(f"{self.df['filepath'][0]}_hrtf.wav")
-
-        if os.path.isfile(filepath):
-            audio = AudioSegment.from_wav(filepath)
-            player = self.make_player(audio)
-        else:
-            player = widgets.HTML(value='')
-        player = widgets.Box([player], layout=self.layouts['item_row'])
-
-        filepath = directory / Path(f'{self.df["filepath"][0]}_hrtf_wave.png')
-
-        if os.path.isfile(filepath):
-            with open(filepath, 'rb') as f:
-                image = f.read()
-                image = widgets.Image(value=image, format='png')
-        else:
-            image = widgets.HTML(value='')
-        image = widgets.Box([image], layout=self.layouts['item_row'])
-        return widgets.Box([player, image], layout=self.layouts['container_column'])
-
-    def make_reflections_tab(self):
-        from pathlib import Path
-        import os
-        from ipywidgets import widgets
-        from pydub import AudioSegment
-
-        directory = Path('data/sample_data/reflections/reflections')
-        filepath = directory / Path(f"{self.df['filepath'][0]}_reflections.wav")
-
-        if os.path.isfile(filepath):
-            audio = AudioSegment.from_wav(filepath)
-            player = self.make_player(audio)
-        else:
-            player = widgets.HTML(value='')
-        player = widgets.Box([player], layout=self.layouts['item_row'])
-
-        filepath = directory / Path(f'{self.df["filepath"][0]}_reflections_wave.png')
-
-        if os.path.isfile(filepath):
-            with open(filepath, 'rb') as f:
-                image = f.read()
-                image = widgets.Image(value=image, format='png')
-        else:
-            image = widgets.HTML(value='')
-        image = widgets.Box([image], layout=self.layouts['item_row'])
-        return widgets.Box([player, image], layout=self.layouts['container_column'])
-
-    def make_reverberations_tab(self):
-        from pathlib import Path
-        import os
-        from ipywidgets import widgets
-        from pydub import AudioSegment
-
-        directory = Path('data/sample_data/reflections/reverberations')
-        filepath = directory / Path(f"{self.df['filepath'][0]}_reverberation.wav")
-
-        if os.path.isfile(filepath):
-            audio = AudioSegment.from_wav(filepath)
-            player = self.make_player(audio)
-        else:
-            player = widgets.HTML(value='')
-        player = widgets.Box([player], layout=self.layouts['item_row'])
-
-        filepath = directory / Path(f'{self.df["filepath"][0]}_reverberation_wave.png')
-
-        if os.path.isfile(filepath):
-            with open(filepath, 'rb') as f:
-                image = f.read()
-                image = widgets.Image(value=image, format='png')
-        else:
-            image = widgets.HTML(value='')
-        image = widgets.Box([image], layout=self.layouts['item_row'])
-        return widgets.Box([player, image], layout=self.layouts['container_column'])
-
-    def make_output_tab(self):
-        from pathlib import Path
-        import os
-        from ipywidgets import widgets
-        from pydub import AudioSegment
-
-        directory = Path('data/sample_data/reflections/samples')
-        filepath = directory / Path(f"{self.df['filepath'][0]}.wav")
-
-        if os.path.isfile(filepath):
-            audio = AudioSegment.from_wav(filepath)
-            player = self.make_player(audio)
-        else:
-            player = widgets.HTML(value='')
-        player = widgets.Box([player], layout=self.layouts['item_row'])
-
-        filepath = directory / Path(f'{self.df["filepath"][0]}_wave.png')
-
-        if os.path.isfile(filepath):
-            with open(filepath, 'rb') as f:
-                image = f.read()
-                image = widgets.Image(value=image, format='png')
-        else:
-            image = widgets.HTML(value='')
-        image_wave = widgets.Box([image], layout=self.layouts['item_row'])
-
-        filepath = directory / Path(f'{self.df["filepath"][0]}_sample.png')
-
-        if os.path.isfile(filepath):
-            with open(filepath, 'rb') as f:
-                image = f.read()
-                image = widgets.Image(value=image, format='png')
-        else:
-            image = widgets.HTML(value='')
-        image_sample = widgets.Box([image], layout=self.layouts['item_row'])
-
-        images = widgets.Box([image_wave, image_sample], layout=self.layouts['item_row'])
-
-        return widgets.Box([player, images], layout=self.layouts['container_column'])
-
-    def make_rir_tab(self):
-        from pathlib import Path
-        import os
-        from ipywidgets import widgets
-        from pydub import AudioSegment
-
-        directory = Path('data/sample_data/reflections/rir')
-        filepath = directory / Path(f"{self.df['filepath'][0]}_rir.wav")
-
-        if os.path.isfile(filepath):
-            audio = AudioSegment.from_wav(filepath)
-            player = self.make_player(audio)
-        else:
-            player = widgets.HTML(value='')
-        player = widgets.Box([player], layout=self.layouts['item_row'])
-
-        filepath = directory / Path(f'{self.df["filepath"][0]}_rir.png')
-
-        if os.path.isfile(filepath):
-            with open(filepath, 'rb') as f:
-                image = f.read()
-                image = widgets.Image(value=image, format='png')
-        else:
-            image = widgets.HTML(value='')
-        image = widgets.Box([image], layout=self.layouts['item_row'])
-        return widgets.Box([player, image], layout=self.layouts['container_column'])
-
-    def make_cepstral_tab(self):
-        from pathlib import Path
-        import os
-        from ipywidgets import widgets
-
-        directory = Path('data/sample_data/reflections/cepstrums')
-        filepath = directory / Path(f'{self.df["filepath"][0]}_left_cepstrum.png')
-
-        if os.path.isfile(filepath):
-            with open(filepath, 'rb') as f:
-                image = f.read()
-                image = widgets.Image(value=image, format='png')
-        else:
-            image = widgets.HTML(value='')
-        image_l = widgets.Box([image], layout=self.layouts['item_row'])
-
-        filepath = directory / Path(f'{self.df["filepath"][0]}_left_cepstrum_20.png')
-
-        if os.path.isfile(filepath):
-            with open(filepath, 'rb') as f:
-                image = f.read()
-                image = widgets.Image(value=image, format='png')
-        else:
-            image = widgets.HTML(value='')
-        image_l_20 = widgets.Box([image], layout=self.layouts['item_row'])
-
-        filepath = directory / Path(f'{self.df["filepath"][0]}_right_cepstrum.png')
-
-        if os.path.isfile(filepath):
-            with open(filepath, 'rb') as f:
-                image = f.read()
-                image = widgets.Image(value=image, format='png')
-        else:
-            image = widgets.HTML(value='')
-        image_r = widgets.Box([image], layout=self.layouts['item_row'])
-
-        filepath = directory / Path(f'{self.df["filepath"][0]}_right_cepstrum_20.png')
-
-        if os.path.isfile(filepath):
-            with open(filepath, 'rb') as f:
-                image = f.read()
-                image = widgets.Image(value=image, format='png')
-        else:
-            image = widgets.HTML(value='')
-        image_r_20 = widgets.Box([image], layout=self.layouts['item_row'])
-
-        directory = Path('data/sample_data/reflections/cepbimo')
-        filepath = directory / Path(f'{self.df["filepath"][0]}_binaural_activity_map_2d.png')
-
-        if os.path.isfile(filepath):
-            with open(filepath, 'rb') as f:
-                image = f.read()
-                image = widgets.Image(value=image, format='png')
-        else:
-            image = widgets.HTML(value='')
-        image_c2d = widgets.Box([image], layout=self.layouts['item_row'])
-
-        filepath = directory / Path(f'{self.df["filepath"][0]}_binaural_activity_map_3d.png')
-
-        if os.path.isfile(filepath):
-            with open(filepath, 'rb') as f:
-                image = f.read()
-                image = widgets.Image(value=image, format='png')
-        else:
-            image = widgets.HTML(value='')
-        image_c3d = widgets.Box([image], layout=self.layouts['item_row'])
-
-        filepath = directory / Path(f'{self.df["filepath"][0]}_cepbimo_wave.png')
-
-        if os.path.isfile(filepath):
-            with open(filepath, 'rb') as f:
-                image = f.read()
-                image = widgets.Image(value=image, format='png')
-        else:
-            image = widgets.HTML(value='')
-        image_cwave = widgets.Box([image], layout=self.layouts['item_row'])
-
-        l_box = widgets.Box([image_l, image_l_20], layout=self.layouts['container_row'])
-        r_box = widgets.Box([image_r, image_r_20], layout=self.layouts['container_row'])
-        cwave = widgets.Box([image_cwave], layout=self.layouts['container_row'])
-        bamap = widgets.Box([image_c2d, image_c3d], layout=self.layouts['container_row'])
-
-        return widgets.Box([l_box, r_box, cwave, bamap], layout=self.layouts['container_column'])
-
-    def make_tabs(self):
-        from ipywidgets import widgets
-
-        titles = ['Parameters', 'Raw signal', 'HRTF', 'Reflections', 'Reverberation', 'Output signal',
-                  'Room impulse response', 'Cepstral analysis']
-        children = [self.make_parameters_tab(), self.make_raw_signal_tab(), self.make_hrtf_tab(),
-                    self.make_reflections_tab(), self.make_reverberations_tab(), self.make_output_tab(),
-                    self.make_rir_tab(), self.make_cepstral_tab()]
-        tab = widgets.Tab(layout=widgets.Layout(width='100%', max_width='80%'))
-        [tab.set_title(i, title=t) for i, t in enumerate(titles)]
-        tab.children = children
-        return tab
+        return widgets.Box([generate_button, output], layout=widgets.Layout(display='flex', flex_flow='column', max_height='400px'))

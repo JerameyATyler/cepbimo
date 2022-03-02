@@ -411,7 +411,7 @@ def plot_reflections(zeniths, azimuths, delays, amplitudes, delay_max=None, **kw
 
     ax.text(np.radians(135),
             delay_max + 15,
-            "Azimuth$\degree$",
+            "Azimuth",
             ha='center',
             va='center',
             fontsize=20,
@@ -435,7 +435,7 @@ def plot_reflections(zeniths, azimuths, delays, amplitudes, delay_max=None, **kw
               labels,
               scatterpoints=1,
               loc='upper left',
-              title='Zenith$\degree$',
+              title='Zenith',
               title_fontsize=20,
               frameon=True,
               fancybox=True,
@@ -455,20 +455,6 @@ def plot_reflections(zeniths, azimuths, delays, amplitudes, delay_max=None, **kw
     cb.ax.tick_params(labelsize=16)
 
     return plt
-
-
-def demo_plot_reflections():
-    """Demonstrate plot_reflections usage."""
-    from data_generator import DataGenerator
-
-    dg = DataGenerator(1)
-    zeniths, azimuths, amplitudes, delays = dg.get_reflections(8)
-
-    args = dict(suptitle='Reflections', title='Reflections plot: the dragon story')
-
-    plt = plot_reflections(zeniths, azimuths, delays, amplitudes, **args)
-    plt.show()
-    plt.close()
 
 
 def plot_sample(zenith,
@@ -507,29 +493,6 @@ def plot_sample(zenith,
            ecolor=cmap(amplitude))
 
     return plt
-
-
-def demo_plot_sample():
-    """Demonstrate plot_sample usage."""
-    from data_generator import DataGenerator
-
-    dg = DataGenerator(1)
-    rng = dg.rng
-
-    zenith = rng.get_zenith()
-    azimuth = rng.get_azimuth(zenith=zenith)
-
-    zeniths, azimuths, amplitudes, delays = dg.get_reflections(8)
-
-    amplitude = rng.rng.uniform(0, 0.05)
-    delay = rng.get_delay()
-    time = rng.get_time()
-
-    args = dict(suptitle='Reflections', title='Reflections plot: the dragon story')
-
-    plt = plot_sample(zenith, azimuth, zeniths, azimuths, delays, amplitudes, amplitude, delay, time, **args)
-    plt.show()
-    plt.close()
 
 
 def interpolator(x, y, z):
@@ -578,30 +541,6 @@ def plot_binaural_activity_map_2d(z, **kwargs):
     return plt
 
 
-def demo_plot_binaural_activity_map_2d():
-    """Demonstrate plot_binaural_activity_map_2d usage."""
-    from pathlib import Path
-    from data_generator import DataGenerator, write_recipe, read_recipe, make_recipe
-
-    dg = DataGenerator(1)
-
-    recipe_path = Path('data/demo')
-    r = dg.generate_dataset_recipe()
-    recipe_path = write_recipe(r, path=recipe_path, file_type='json')
-    r = read_recipe(recipe_path)
-    make_recipe(r)
-
-    args = dict(
-        suptitle="2d Binaural Activity Map",
-        title="Willy Wonka and the binaural activity map plot",
-        xlabel="ITD, ms",
-        ylabel="Time/Delay, ms"
-    )
-    plt = r.apply(lambda row: plot_binaural_activity_map_2d(row['cepbimo'].z, **args), axis=1)
-    plt.iloc[0].show()
-    plt.iloc[0].close()
-
-
 def plot_binaural_activity_map_3d(z, **kwargs):
     """Plot a 3-dimensional binaural activity map"""
     import matplotlib.pyplot as plt
@@ -635,30 +574,6 @@ def plot_binaural_activity_map_3d(z, **kwargs):
     cb.set_label('Correlation', size=20)
     cb.ax.tick_params(labelsize=16)
     return plt
-
-
-def demo_plot_binaural_activity_map_3d():
-    """Demonstrate plot_binaural_activity_map_3d usage."""
-    from pathlib import Path
-    from data_generator import DataGenerator, write_recipe, read_recipe, make_recipe
-
-    dg = DataGenerator(1)
-
-    recipe_path = Path('data/demo')
-    r = dg.generate_dataset_recipe()
-    recipe_path = write_recipe(r, path=recipe_path, file_type='json')
-    r = read_recipe(recipe_path)
-    make_recipe(r)
-
-    args = dict(
-        suptitle="3d Binaural Activity Map",
-        title="A night at the binaural activity map plot",
-        xlabel="ITD, ms",
-        ylabel="Time/Delay, ms"
-    )
-    plt = r.apply(lambda row: plot_binaural_activity_map_3d(row['cepbimo'].z, **args), axis=1)
-    plt.iloc[0].show()
-    plt.iloc[0].close()
 
 
 def plot_zenith_range(z_min, z_max, **kwargs):

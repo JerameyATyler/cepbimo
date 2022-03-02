@@ -25,7 +25,7 @@ class RNG:
     def __init__(self,
                  seed='0xec0ec0',
                  duration=10,
-                 delay_limits=(0, 60),
+                 delay_limits=(1, 60),
                  time_limits=(1, 8),
                  reflection_limits=(4, 8),
                  zenith_limits=(-40, 90),
