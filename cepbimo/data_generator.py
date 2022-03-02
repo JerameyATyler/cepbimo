@@ -34,7 +34,7 @@ class DataGenerator:
         self.rng = rng
         self.sample_count = sample_count
         self.recipe = None
-        self.chunk_size = 10
+        self.chunk_size = 50
         self.fs = fs
         self.verbose = verbose
 
@@ -59,6 +59,8 @@ class DataGenerator:
         import pandas as pd
         from pathlib import Path
 
+        print('Generating ingredients list')
+
         filepath = Path(self.output_directory) / 'ingredients.json'
 
         rng = self.rng
@@ -74,7 +76,7 @@ class DataGenerator:
             sample_count=self.sample_count
         ))
 
-        df.to_json(filepath, orient='records', lines=False)
+        df.to_json(filepath, orient='records', lines=True)
         return df
 
     def generate_sample_recipe(self):
@@ -113,6 +115,7 @@ class DataGenerator:
 
         s = str(int(hashlib.sha256(s.encode('utf-8')).hexdigest(), 16) % 10**8)
         filepath = f'{composer}_{s}'
+        print(f'Generating recipe {filepath}\n')
 
         return dict(
             composer=composer,
@@ -134,36 +137,50 @@ class DataGenerator:
             name=''
         )
 
-    def generate_recipe(self):
-        from pathlib import Path
+    def generate_recipe(self, count):
         import pandas as pd
         import dask
-
-        filepath = Path(self.output_directory) / 'recipe.json'
-
-        sample_count = self.sample_count
+        print('Generating recipes')
 
         lazy_results = []
-        for i in range(sample_count):
+        for i in range(count):
             lazy_result = dask.delayed(self.generate_sample_recipe)()
             lazy_results.append(lazy_result)
 
         df = pd.DataFrame(dask.compute(*lazy_results))
 
-        df.to_json(filepath, orient='records', lines=True)
         return df
 
     def generate(self):
         """Start generator."""
+        import pandas as pd
         import dask.dataframe as dd
+        import dask
+        from pathlib import Path
         import numpy as np
+        print('Data generator started')
+        filepath = Path(self.output_directory) / 'recipe'
 
-        ingredients = self.generate_ingredients_list()
-        recipe = self.generate_recipe()
-        ddf = dd.from_pandas(recipe, npartitions=int(np.sqrt(self.sample_count)))
+        print('Generating ingredient list')
+        self.generate_ingredients_list()
+
+        sample_count = self.sample_count
+        chunk_size = self.chunk_size
+
+        batches = int(np.ceil(sample_count/chunk_size))
+        results = []
+        print('Generating recipe batches')
+        for i in range(batches):
+            result = dask.delayed(self.generate_recipe)(chunk_size)
+            results.append(result)
+
+        df = pd.concat(dask.compute(*results))
+        ddf = dd.from_pandas(df, chunksize=chunk_size)
+        print('Writing recipes')
+        ddf.to_parquet(filepath, engine='pyarrow')
+        print('Generating samples')
         s = ddf.map_partitions(self.generate_samples, meta=ddf)
         s.compute()
-        return ingredients, recipe
 
     def generate_samples(self, recipe):
         return recipe.apply(self.generate_sample, axis=1)
@@ -177,7 +194,7 @@ class DataGenerator:
         from utils import split_channels
         from spectrum import cepstrum
         from Cepbimo import Cepbimo
-        print(f'Generating sample: {recipe["filepath"]}')
+        print(f'Generating sample: {recipe["filepath"]}\n')
 
         print(f'\tMixing parts: {recipe["filepath"]}')
         signal = mix_parts(recipe['parts'], recipe['offset'], recipe['duration'])
@@ -419,7 +436,7 @@ def demo_data_generator():
     """Demonstrate DataGenerator usage."""
     from RNG import RNG
     rng = RNG()
-    dg = DataGenerator(1, 'data/sample', rng, verbose=False)
+    dg = DataGenerator(500, 'data/sample', rng, verbose=False)
     dg.generate()
 
 
