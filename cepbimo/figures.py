@@ -88,10 +88,12 @@ def set_parameters(ax, **kwargs):
         ax.set_zlabel(kwargs['zlabel'], **label_font)
 
 
-def plot_wave(x, **kwargs):
+def plot_wave(x, filepath=None, **kwargs):
     """Plot waveform(s)"""
     import matplotlib.pyplot as plt
     import numpy as np
+    from pathlib import Path
+    import os
 
     num_frames, num_channels = x.size, x.ndim
 
@@ -128,6 +130,17 @@ def plot_wave(x, **kwargs):
             ax[c].set_title(kwargs['title'][c], **title_font)
         ax[c].plot(t, x[:, c])
 
+    if filepath is not None:
+        path = Path(filepath)
+        if not os.path.isdir(path.parents[0]):
+            os.mkdir(path.parents[0])
+        plt.savefig(filepath)
+        fig.clear()
+        plt.close()
+        plt.cla()
+        plt.clf()
+
+        return filepath
     return plt
 
 
@@ -155,9 +168,11 @@ def demo_plot_wave():
     plt.close()
 
 
-def plot_waves(x, **kwargs):
+def plot_waves(x, filepath=None, **kwargs):
     """Plot waveform(s)"""
     import numpy as np
+    from pathlib import Path
+    import os
 
     num_frames, num_channels = x.size, x.ndim
 
@@ -185,6 +200,18 @@ def plot_waves(x, **kwargs):
     if 'legend' in kwargs.keys() \
             and kwargs['legend']:
         ax.legend(handles=handles)
+
+    if filepath is not None:
+        path = Path(filepath)
+        if not os.path.isdir(path.parents[0]):
+            os.mkdir(path.parents[0])
+        plt.savefig(filepath)
+        fig.clear()
+        plt.close()
+        plt.cla()
+        plt.clf()
+
+        return filepath
     return plt
 
 
@@ -214,9 +241,11 @@ def demo_plot_waves():
     plt.close()
 
 
-def plot_spectrogram(x, **kwargs):
+def plot_spectrogram(x, filepath=None, **kwargs):
     """Plot spectrogram"""
     import matplotlib.pyplot as plt
+    from pathlib import Path
+    import os
 
     fig = plt.figure(layout='constrained')
     fig.set_size_inches(figure_dimensions['square'])
@@ -233,6 +262,18 @@ def plot_spectrogram(x, **kwargs):
         ax.specgram(x, cmap=color_palette, Fs=kwargs['fs'])
     else:
         ax.specgram(x, cmap=color_palette)
+
+    if filepath is not None:
+        path = Path(filepath)
+        if not os.path.isdir(path.parents[0]):
+            os.mkdir(path.parents[0])
+        plt.savefig(filepath)
+        fig.clear()
+        plt.close()
+        plt.cla()
+        plt.clf()
+
+        return filepath
 
     return plt
 
@@ -257,11 +298,13 @@ def demo_plot_spectrogram():
     plt.close()
 
 
-def plot_spectrum(x, fs, spectrum='amplitude', **kwargs):
+def plot_spectrum(x, fs, spectrum='amplitude', filepath=None, **kwargs):
     """Plot the specified spectrum"""
     import numpy as np
     from numpy.fft import fftfreq
     from spectrum import amplitude_spectrum, power_spectrum, phase_spectrum, log_spectrum
+    from pathlib import Path
+    import os
 
     if spectrum == 'amplitude':
         s = amplitude_spectrum(x)
@@ -283,9 +326,22 @@ def plot_spectrum(x, fs, spectrum='amplitude', **kwargs):
     s = s[idx][n:]
     freqs = freqs[idx][n:]
 
-    plt, _, ax = basic_figure('wrect', **kwargs)
+    plt, fig, ax = basic_figure('wrect', **kwargs)
 
     ax.plot(freqs, s)
+
+    if filepath is not None:
+        path = Path(filepath)
+        if not os.path.isdir(path.parents[0]):
+            os.mkdir(path.parents[0])
+        plt.savefig(filepath)
+        fig.clear()
+        plt.close()
+        plt.cla()
+        plt.clf()
+
+        return filepath
+
     return plt
 
 
@@ -315,9 +371,11 @@ def demo_plot_spectrum():
     plt.close()
 
 
-def plot_cepstrum(x, fs, offset, window_length, **kwargs):
+def plot_cepstrum(x, fs, offset, window_length, filepath=None, **kwargs):
     """Plot the cepstrum."""
     from spectrum import cepstrum
+    from pathlib import Path
+    import os
 
     C, q = cepstrum(x, fs, offset, window_length)
 
@@ -326,6 +384,19 @@ def plot_cepstrum(x, fs, offset, window_length, **kwargs):
     set_parameters(ax, **kwargs)
 
     ax.plot(q * 1000, C)
+
+    if filepath is not None:
+        path = Path(filepath)
+        if not os.path.isdir(path.parents[0]):
+            os.mkdir(path.parents[0])
+        plt.savefig(filepath)
+        fig.clear()
+        plt.close()
+        plt.cla()
+        plt.clf()
+
+        return filepath
+
     return plt
 
 
@@ -350,9 +421,11 @@ def demo_plot_cepstrum():
     plt.close()
 
 
-def plot_hrtfs(zeniths, azimuths, **kwargs):
+def plot_hrtfs(zeniths, azimuths, filepath=None, **kwargs):
     """Plot head-related transfer functions (HRTF)"""
     import numpy as np
+    from pathlib import Path
+    import os
 
     plt, fig, ax = polar_figure('square', **kwargs)
 
@@ -361,6 +434,19 @@ def plot_hrtfs(zeniths, azimuths, **kwargs):
     ax.set_rlim(bottom=90, top=-40)
 
     ax.scatter(np.radians(azimuths), zeniths)
+
+    if filepath is not None:
+        path = Path(filepath)
+        if not os.path.isdir(path.parents[0]):
+            os.mkdir(path.parents[0])
+        plt.savefig(filepath)
+        fig.clear()
+        plt.close()
+        plt.cla()
+        plt.clf()
+
+        return filepath
+
     return plt
 
 
@@ -388,10 +474,12 @@ def demo_plot_hrtfs():
     plt.close()
 
 
-def plot_reflections(zeniths, azimuths, delays, amplitudes, delay_max=None, **kwargs):
+def plot_reflections(zeniths, azimuths, delays, amplitudes, delay_max=None, filepath=None, **kwargs):
     """Plot reflections."""
     import numpy as np
     from data_loader import list_hrtf_data
+    from pathlib import Path
+    import os
 
     zenith_min = min(list_hrtf_data().keys())
     zenith_max = max(list_hrtf_data().keys())
@@ -454,7 +542,19 @@ def plot_reflections(zeniths, azimuths, delays, amplitudes, delay_max=None, **kw
     cb.set_label('Amplitude', size=20)
     cb.ax.tick_params(labelsize=16)
 
-    return plt
+    if filepath is not None:
+        path = Path(filepath)
+        if not os.path.isdir(path.parents[0]):
+            os.mkdir(path.parents[0])
+        plt.savefig(filepath)
+        fig.clear()
+        plt.close()
+        plt.cla()
+        plt.clf()
+
+        return filepath
+
+    return plt, fig
 
 
 def plot_sample(zenith,
@@ -468,10 +568,12 @@ def plot_sample(zenith,
                 time,
                 delay_max=None,
                 time_max=None,
-                **kwargs):
+                filepath=None, **kwargs):
     """Plot sample."""
     import numpy as np
     from data_loader import list_hrtf_data
+    import os
+    from pathlib import Path
 
     if delay_max is None:
         delay_max = max(delays)
@@ -484,13 +586,25 @@ def plot_sample(zenith,
     area = ((zenith - zenith_min) / (zenith_max - zenith_min)) * (0.5 - 0.1) + 0.1
     err = (time / time_max) * (0.5 - 0.1) + 0.1
 
-    plt = plot_reflections(zeniths, azimuths, delays, amplitudes, **kwargs)
+    plt, fig = plot_reflections(zeniths, azimuths, delays, amplitudes, **kwargs)
 
     cmap = plt.get_cmap(color_palette)
 
     ax = plt.gca()
     ax.bar(np.deg2rad(azimuth), delay_max - delay, xerr=err, bottom=delay, width=area, alpha=0.5, color=cmap(amplitude),
            ecolor=cmap(amplitude))
+
+    if filepath is not None:
+        path = Path(filepath)
+        if not os.path.isdir(path.parents[0]):
+            os.mkdir(path.parents[0])
+        plt.savefig(filepath)
+        fig.clear()
+        plt.close()
+        plt.cla()
+        plt.clf()
+
+        return filepath
 
     return plt
 
@@ -511,9 +625,11 @@ def interpolator(x, y, z):
     return x2, y2, z1
 
 
-def plot_binaural_activity_map_2d(z, **kwargs):
+def plot_binaural_activity_map_2d(z, filepath=None, **kwargs):
     """Plot a 2-dimensional binaural activity map"""
     import numpy as np
+    from pathlib import Path
+    import os
 
     z = z.transpose()
     x = np.linspace(-1, 1, z.shape[1])
@@ -538,13 +654,27 @@ def plot_binaural_activity_map_2d(z, **kwargs):
     cb.set_label('Correlation', size=20)
     cb.ax.tick_params(labelsize=16)
 
+    if filepath is not None:
+        path = Path(filepath)
+        if not os.path.isdir(path.parents[0]):
+            os.mkdir(path.parents[0])
+        plt.savefig(filepath)
+        fig.clear()
+        plt.close()
+        plt.cla()
+        plt.clf()
+
+        return filepath
+
     return plt
 
 
-def plot_binaural_activity_map_3d(z, **kwargs):
+def plot_binaural_activity_map_3d(z, filepath=None, **kwargs):
     """Plot a 3-dimensional binaural activity map"""
     import matplotlib.pyplot as plt
     import numpy as np
+    from pathlib import Path
+    import os
 
     z = z.transpose()
     x = np.linspace(-1, 1, z.shape[1])
@@ -573,13 +703,28 @@ def plot_binaural_activity_map_3d(z, **kwargs):
     cb = plt.colorbar(surf, ax=ax)
     cb.set_label('Correlation', size=20)
     cb.ax.tick_params(labelsize=16)
+
+    if filepath is not None:
+        path = Path(filepath)
+        if not os.path.isdir(path.parents[0]):
+            os.mkdir(path.parents[0])
+        plt.savefig(filepath)
+        fig.clear()
+        plt.close()
+        plt.cla()
+        plt.clf()
+
+        return filepath
+
     return plt
 
 
-def plot_zenith_range(z_min, z_max, **kwargs):
+def plot_zenith_range(z_min, z_max, filepath=None, **kwargs):
     import matplotlib as mpl
     import matplotlib.pyplot as plt
     import numpy as np
+    from pathlib import Path
+    import os
     """Generates a polar figure with the specified shape."""
 
     cmap = mpl.cm.get_cmap('viridis')(0.5)
@@ -621,6 +766,19 @@ def plot_zenith_range(z_min, z_max, **kwargs):
 
     ax.grid(True)
     area = plt.fill_between(theta, 0, 1, alpha=0.75, label='area', color=cmap)
+
+    if filepath is not None:
+        path = Path(filepath)
+        if not os.path.isdir(path.parents[0]):
+            os.mkdir(path.parents[0])
+        plt.savefig(filepath)
+        fig.clear()
+        plt.close()
+        plt.cla()
+        plt.clf()
+
+        return filepath
+
     return plt, fig, ax, area
 
 
@@ -637,9 +795,11 @@ def demo_plot_zenith_range():
     plt.close()
 
 
-def plot_azimuth_range(a_min, a_max, **kwargs):
+def plot_azimuth_range(a_min, a_max, filepath=None, **kwargs):
     import matplotlib as mpl
     import numpy as np
+    from pathlib import Path
+    import os
     """Generates a polar figure with the specified shape."""
 
     cmap = mpl.cm.get_cmap('viridis')(0.5)
@@ -652,6 +812,18 @@ def plot_azimuth_range(a_min, a_max, **kwargs):
     fig.set_size_inches((5, 5))
     ax.set_rticks([])
     area = plt.fill_between(theta, 0, 1, alpha=0.75, label='area', color=cmap)
+
+    if filepath is not None:
+        path = Path(filepath)
+        if not os.path.isdir(path.parents[0]):
+            os.mkdir(path.parents[0])
+        plt.savefig(filepath)
+        fig.clear()
+        plt.close()
+        plt.cla()
+        plt.clf()
+
+        return filepath
 
     return plt, fig, ax, area
 

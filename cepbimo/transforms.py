@@ -1,6 +1,6 @@
 def apply_hrtf(x, zenith, azimuth):
     """Apply the HRTF to the signal"""
-    from utils import audiosegment_to_array, arrays_to_audiosegment
+    from utils import arrays_to_audiosegment, split_channels
     from pydub import AudioSegment
     from data_loader import list_hrtf_data
     from scipy.signal import convolve
@@ -17,15 +17,8 @@ def apply_hrtf(x, zenith, azimuth):
     if fs > x.frame_rate:
         x = x.set_frame_rate(fs)
 
-    if x.channels == 1:
-        x = x.set_channels(2)
-
-    channels_h = h.split_to_mono()
-    channels_x = x.split_to_mono()
-    left_h = audiosegment_to_array(channels_h[0])
-    left_x = audiosegment_to_array(channels_x[0])
-    right_h = audiosegment_to_array(channels_h[1])
-    right_x = audiosegment_to_array(channels_x[1])
+    left_x, right_x = split_channels(x)
+    left_h, right_h = split_channels(h)
 
     left = convolve(left_h, left_x)
     right = convolve(right_h, right_x)
@@ -54,7 +47,7 @@ def apply_reverberation(x, amplitude, delay, time):
     from pydub import AudioSegment
     import numpy as np
     from scipy.signal import fftconvolve
-    from utils import audiosegment_to_array, arrays_to_audiosegment
+    from utils import split_channels, arrays_to_audiosegment
 
     fs = x.frame_rate
 
@@ -65,9 +58,7 @@ def apply_reverberation(x, amplitude, delay, time):
     left_reverb = np.random.randn(t.shape[0], ) * envelope
     right_reverb = np.random.randn(t.shape[0], ) * envelope
 
-    channels = x.split_to_mono()
-    left = audiosegment_to_array(channels[0])
-    right = audiosegment_to_array(channels[1])
+    left, right = split_channels(x)
 
     left = fftconvolve(left_reverb, left) * amplitude
     right = fftconvolve(right_reverb, right) * amplitude
@@ -99,11 +90,12 @@ def mix_reflections(x, count, amplitudes, delays, zeniths, azimuths):
     t = max([len(r) for r in reflections])
 
     s = AudioSegment.silent(duration=t)
-    s = s.overlay(x)
+    y = s.overlay(x)
 
     for r in reflections:
-        s = s.overlay(r)
-    return s
+        y = y.overlay(r)
+
+    return y
 
 
 def sum_signals(x, y):
