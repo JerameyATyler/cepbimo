@@ -77,3 +77,16 @@ def play_audio(x):
         y = np.array([left, right])
 
     return Audio(y, rate=fs)
+
+
+def generate_impulse(duration):
+    """
+    Generate the room impulse response by applying an HRTF, reflections, and reverberation to a 'click'
+    [1., 0., ..., 0.]
+    """
+    import numpy as np
+
+    fs = 48000
+    click = np.ones(1)
+    click = np.concatenate((click, np.zeros(fs * duration - 1)))
+    return array_to_audiosegment(click, fs)

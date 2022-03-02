@@ -113,7 +113,7 @@ class DataGenerator:
             f'{reverb_delay}' \
             f'{reverb_time}'
 
-        s = str(int(hashlib.sha256(s.encode('utf-8')).hexdigest(), 16) % 10**8)
+        s = str(int(hashlib.sha256(s.encode('utf-8')).hexdigest(), 16) % 10 ** 8)
         filepath = f'{composer}_{s}'
         print(f'Generating recipe {filepath}\n')
 
@@ -161,17 +161,20 @@ class DataGenerator:
         print('Data generator started')
         filepath = Path(self.output_directory) / 'recipe'
 
-        print('Generating ingredient list')
         self.generate_ingredients_list()
 
         sample_count = self.sample_count
         chunk_size = self.chunk_size
 
-        batches = int(np.ceil(sample_count/chunk_size))
+        batches = int(np.ceil(sample_count / chunk_size))
         results = []
         print('Generating recipe batches')
         for i in range(batches):
-            result = dask.delayed(self.generate_recipe)(chunk_size)
+            if (i + 1) * chunk_size > sample_count:
+                chunk = sample_count % chunk_size
+            else:
+                chunk = chunk_size
+            result = dask.delayed(self.generate_recipe)(chunk)
             results.append(result)
 
         df = pd.concat(dask.compute(*results))
@@ -194,6 +197,11 @@ class DataGenerator:
         from utils import split_channels
         from spectrum import cepstrum
         from Cepbimo import Cepbimo
+        from utils import generate_impulse
+        from pathlib import Path
+
+        impulse = generate_impulse(recipe['duration'])
+
         print(f'Generating sample: {recipe["filepath"]}\n')
 
         print(f'\tMixing parts: {recipe["filepath"]}')
@@ -201,27 +209,37 @@ class DataGenerator:
 
         print(f'\tApplying HRTF: {recipe["filepath"]}')
         hrtf = apply_hrtf(signal, recipe['zenith'], recipe['azimuth'])
+        impulse_hrtf = apply_hrtf(impulse, recipe['zenith'], recipe['azimuth'])
 
         print(f'\tApplying reflections: {recipe["filepath"]}')
         reflections = mix_reflections(hrtf, recipe['reflection_count'], recipe['reflection_amplitude'],
                                       recipe['reflection_delay'], recipe['reflection_zenith'],
                                       recipe['reflection_azimuth'])
+        impulse_reflections = mix_reflections(impulse_hrtf, recipe['reflection_count'], recipe['reflection_amplitude'],
+                                              recipe['reflection_delay'], recipe['reflection_zenith'],
+                                              recipe['reflection_azimuth'])
 
         print(f'\tApplying reverberation: {recipe["filepath"]}')
         reverberation = apply_reverberation(hrtf, recipe['reverb_amplitude'], recipe['reverb_delay'],
                                             recipe['reverb_time'])
+        impulse_reverberation = apply_reverberation(impulse_hrtf, recipe['reverb_amplitude'], recipe['reverb_delay'],
+                                                    recipe['reverb_time'])
 
         print(f'\tSumming signals: {recipe["filepath"]}')
         summation = sum_signals(reflections, reverberation)
+        impulse_summation = sum_signals(impulse_reflections, impulse_reverberation)
 
         print(f'\tAdjusting signal-to-noise ratio: {recipe["filepath"]}')
         noise = adjust_signal_to_noise(summation, -60)
+        impulse_noise = adjust_signal_to_noise(impulse_summation, -60)
 
         print(f'\tTrimming sample: {recipe["filepath"]}')
         sample = noise[:recipe['duration'] * 1000]
+        impulse_sample = impulse_noise[:recipe['duration'] * 1000]
         self.write(sample, 'samples', f'{recipe["filepath"]}.wav')
 
         if self.verbose:
+            self.write(impulse_sample, 'rir', f'{recipe["filepath"]}_rir.wav')
             self.write(signal, 'raw', f'{recipe["filepath"]}_raw.wav')
             self.write(hrtf, 'hrtf', f'{recipe["filepath"]}_hrtf.wav')
             self.write(reflections, 'reflections', f'{recipe["filepath"]}_reflections.wav')
@@ -231,72 +249,76 @@ class DataGenerator:
 
             print(f'\tGenerating figures: {recipe["filepath"]}')
 
+            print(f'\tGenerating figure: samples/{recipe["filepath"]}_sample.png')
+            file_directory = Path(f'{self.output_directory}')
+
             args = dict(suptitle='Sample', title=f'{recipe["part_count"]}')
-            plt = plot_sample(recipe['zenith'], recipe['azimuth'], recipe['reflection_zenith'],
-                              recipe['reflection_azimuth'], recipe['reflection_delay'], recipe['reflection_amplitude'],
-                              recipe['reverb_amplitude'], recipe['reverb_delay'], recipe['reverb_time'], **args)
-            self.write(plt, 'samples', f'{recipe["filepath"]}.png')
-            plt.ioff()
-            plt.close()
+            plot_sample(recipe['zenith'], recipe['azimuth'], recipe['reflection_zenith'],
+                        recipe['reflection_azimuth'], recipe['reflection_delay'], recipe['reflection_amplitude'],
+                        recipe['reverb_amplitude'], recipe['reverb_delay'], recipe['reverb_time'],
+                        filepath=f'{(file_directory / "samples" / recipe["filepath"]).__str__()}'
+                                 f'_sample.png', **args)
 
+            print(f'\tGenerating figure: raw/{recipe["filepath"]}_raw.png')
             t = np.linspace(0, int(np.ceil(signal.duration_seconds)), int(signal.frame_count()))
-
             x = np.array(split_channels(signal)).transpose()
             args = dict(suptitle='Raw direct signal', title=['Left channel', 'Right channel'],
                         xlabel=['Time, s', 'Time, s'], ylabel=['Amplitude', 'Amplitude'], t=[t, t])
-            plt = plot_wave(x, **args)
-            self.write(plt, 'raw', f'{recipe["filepath"]}.png')
-            plt.close()
+            plot_wave(x, filepath=f'{(file_directory / "raw" / recipe["filepath"]).__str__()}'
+                                  f'_raw.png', **args)
 
+            print(f'\tGenerating figure: hrtf/{recipe["filepath"]}_hrtf.png')
             t = np.linspace(0, int(np.ceil(hrtf.duration_seconds)), int(hrtf.frame_count()))
             x = np.array(split_channels(hrtf)).transpose()
             args['suptitle'] = 'HRTF applied to direct signal'
             args['t'] = [t, t]
-            plt = plot_wave(x, **args)
-            self.write(plt, 'hrtf', f'{recipe["filepath"]}_hrtf.png')
-            plt.close()
+            plot_wave(x, filepath=f'{(file_directory / "hrtf" / recipe["filepath"]).__str__()}'
+                                  f'_hrtf.png', **args)
 
+            print(f'\tGenerating figure: reflections/{recipe["filepath"]}_reflections.png')
             t = np.linspace(0, int(np.ceil(reflections.duration_seconds)), int(reflections.frame_count()))
             x = np.array(split_channels(reflections)).transpose()
             args['t'] = [t, t]
             args['suptitle'] = 'Reflections applied to direct signal'
-            plt = plot_wave(x, **args)
-            self.write(plt, 'reflections', f'{recipe["filepath"]}_reflections.png')
-            plt.close()
+            plot_wave(x, filepath=f'{(file_directory / "reflections" / recipe["filepath"]).__str__()}'
+                                  f'_reflections.png', **args)
 
+            print(f'\tGenerating figure: reverberation/{recipe["filepath"]}_reverberation.png')
             t = np.linspace(0, int(np.ceil(reverberation.duration_seconds)), int(reverberation.frame_count()))
             x = np.array(split_channels(reverberation)).transpose()
             args['t'] = [t, t]
             args['suptitle'] = 'Reverberation applied to direct signal'
-            plt = plot_wave(x, **args)
-            self.write(plt, 'reverberation', f'{recipe["filepath"]}_reverberation.png')
-            plt.close()
+            plot_wave(x,
+                      filepath=f'{(file_directory / "reverberation" / recipe["filepath"]).__str__()}'
+                               f'_reverberation.png', **args)
 
+            print(f'\tGenerating figure: summation/{recipe["filepath"]}_summation.png')
             t = np.linspace(0, int(np.ceil(summation.duration_seconds)), int(summation.frame_count()))
             x = np.array(split_channels(summation)).transpose()
             args['t'] = [t, t]
             args['suptitle'] = 'Reflections and reverberation applied to direct signal'
-            plt = plot_wave(x, **args)
-            self.write(plt, 'summation', f'{recipe["filepath"]}_summation.png')
-            plt.close()
+            plot_wave(x, filepath=f'{(file_directory / "summation" / recipe["filepath"]).__str__()}'
+                                  f'_summation.png',
+                      **args)
 
+            print(f'\tGenerating figure: noise/{recipe["filepath"]}_noise.png')
             t = np.linspace(0, int(np.ceil(noise.duration_seconds)), int(noise.frame_count()))
             x = np.array(split_channels(noise)).transpose()
             args['t'] = [t, t]
             args['suptitle'] = '-60dB of white noise added to direct signal'
-            plt = plot_wave(x, **args)
-            self.write(plt, 'noise', f'{recipe["filepath"]}_noise.png')
-            plt.close()
+            plot_wave(x, filepath=f'{(file_directory / "noise" / recipe["filepath"]).__str__()}'
+                                  f'_noise.png', **args)
 
+            print(f'\tGenerating figure: samples/{recipe["filepath"]}.png')
             t = np.linspace(0, int(np.ceil(sample.duration_seconds)), int(sample.frame_count()))
             left, right = split_channels(sample)
             x = np.array([left, right]).transpose()
             args['t'] = [t, t]
             args['suptitle'] = 'Direct signal'
-            plt = plot_wave(x, **args)
-            self.write(plt, 'samples', f'{recipe["filepath"]}.png')
-            plt.close()
+            plot_wave(x, filepath=f'{(file_directory / "samples" / recipe["filepath"]).__str__()}'
+                                  f'.png', **args)
 
+            print(f'\tGenerating figure: cepstrums/{recipe["filepath"]}_cepstrum.png')
             args = dict()
             offset = 1024
             window_length = offset * 64 * 2
@@ -309,16 +331,18 @@ class DataGenerator:
             args['xlabel'] = ['Quefrency, ms', 'Quefrency, ms']
             args['ylabel'] = ['Amplitude', 'Amplitude']
             args['t'] = [ql, qr]
-            plt = plot_wave(x, **args)
-            self.write(plt, 'cepstrums', f'{recipe["filepath"]}_cepstrum.png')
-            plt.close()
+            plot_wave(x, filepath=f'{(file_directory / "cepbimo" / recipe["filepath"]).__str__()}'
+                                  f'_cepstrum.png',
+                      **args)
 
+            print(f'\tGenerating figure: cepstrums/{recipe["filepath"]}_cepstrum20.png')
             args['suptitle'] = 'Amplitude cepstrum, 0-20 ms'
             args['xlim'] = [(0, 0.02), (0, 0.02)]
-            plt = plot_wave(x, **args)
-            self.write(plt, 'cepstrums', f'{recipe["filepath"]}_cepstrum20.png')
-            plt.close()
+            plot_wave(x, filepath=f'{(file_directory / "cepstrum" / recipe["filepath"]).__str__()}'
+                                  f'_cepstrum20.png',
+                      **args)
 
+            print(f'\tGenerating figure: cepbimo/{recipe["filepath"]}_cepbimo.png')
             args = dict()
             cepbimo = Cepbimo(sample)
             t = np.linspace(-1, 1, (cepbimo.lag * 2) + 1)
@@ -330,23 +354,18 @@ class DataGenerator:
             args['ylabel'] = 'Correlation'
             args['legend'] = True
             args['legend_labels'] = ['2nd-layer cross-correlation', 'Cross-correlation']
-            plt = plot_waves(x, **args)
-            self.write(plt, 'cepbimo', f'{recipe["filepath"]}_cepbimo.png')
-            plt.close()
+            plot_waves(x, filepath=f'{(file_directory / "cepbimo" / recipe["filepath"]).__str__()}'
+                                   f'_cepbimo.png', **args)
 
-            plt = plot_binaural_activity_map_2d(cepbimo.z)
-            self.write(plt, 'cepbimo', f'{recipe["filepath"]}_binaural_activity_map_2d.png')
-            plt.close()
+            print(f'\tGenerating figure: cepbimo/{recipe["filepath"]}_binaural_activity_map2d.png')
+            plot_binaural_activity_map_2d(cepbimo.z,
+                                          filepath=f'{(file_directory / "cepbimo" / recipe["filepath"]).__str__()}'
+                                                   f'_binaural_activity_map_2d.png')
 
-            plt = plot_binaural_activity_map_3d(cepbimo.z)
-            self.write(plt, 'cepbimo', f'{recipe["filepath"]}_binaural_activity_map_3d.png')
-            plt.close()
-
-            self.generate_room_impulse(recipe['zenith'], recipe['azimuth'], recipe['reflection_count'],
-                                       recipe['reflection_zenith'], recipe['reflection_azimuth'],
-                                       recipe['reflection_delay'], recipe['reflection_amplitude'],
-                                       recipe['reverb_amplitude'], recipe['reverb_delay'], recipe['reverb_time'],
-                                       recipe['duration'], recipe['filepath'])
+            print(f'\tGenerating figure: cepbimo/{recipe["filepath"]}_binaural_activity_map3d.png')
+            plot_binaural_activity_map_3d(cepbimo.z,
+                                          filepath=f'{(file_directory / "cepbimo" / recipe["filepath"]).__str__()}'
+                                                   f'_binaural_activity_map_3d.png')
 
     def write(self, file, directory, filename):
         from pathlib import Path
@@ -366,6 +385,10 @@ class DataGenerator:
                 file.export(path, format=file_format)
             if file_format == 'png':
                 file.savefig(path, format=file_format)
+                file.figure().clear()
+                file.close()
+                file.cla()
+                file.clf()
 
         return path
 
@@ -392,51 +415,12 @@ class DataGenerator:
 
         return pd.read_json(path, orient='records')
 
-    def generate_room_impulse(self, zenith, azimuth, reflection_count, zeniths, azimuths, delays, amplitudes, amplitude,
-                              delay,
-                              time, duration, filepath):
-        """
-        Generate the room impulse response by applying an HRTF, reflections, and reverberation to a 'click'
-        [1., 0., ..., 0.]
-        """
-        import numpy as np
-        from transforms import apply_hrtf, mix_reflections, apply_reverberation, sum_signals
-        from figures import plot_wave
-        from utils import array_to_audiosegment, split_channels
-
-        fs = 48000
-        click = np.ones(1)
-        click = np.concatenate((click, np.zeros(fs * duration - 1)))
-
-        signal = array_to_audiosegment(click, fs)
-        signal = apply_hrtf(signal, zenith, azimuth)
-
-        reflections = mix_reflections(signal, reflection_count, amplitudes, delays, zeniths, azimuths)
-        reverberation = apply_reverberation(signal, amplitude, delay, time)
-
-        summation = sum_signals(reflections, reverberation)
-
-        self.write(summation, 'rir', f'{filepath}_rir.wav')
-
-        t = np.linspace(0, int(np.ceil(summation.duration_seconds)), int(summation.frame_count()))
-        x = np.array(split_channels(summation)).transpose()
-        args = dict(
-            t=[t, t],
-            suptitle='RIR, click=[1., 0., ..., 0.]',
-            title=['Left channel', 'Right channel'],
-            xlabel=['Time, s', 'Time, s'],
-            ylabel=['Amplitude', 'Amplitude']
-        )
-        plt = plot_wave(x, **args)
-        self.write(plt, 'rir', f'{filepath}_rir.png')
-        plt.close()
-
 
 def demo_data_generator():
     """Demonstrate DataGenerator usage."""
     from RNG import RNG
     rng = RNG()
-    dg = DataGenerator(500, 'data/sample', rng, verbose=False)
+    dg = DataGenerator(54, 'data/sample', rng, verbose=False)
     dg.generate()
 
 
