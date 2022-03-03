@@ -331,7 +331,7 @@ class DataGenerator:
             args['xlabel'] = ['Quefrency, ms', 'Quefrency, ms']
             args['ylabel'] = ['Amplitude', 'Amplitude']
             args['t'] = [ql, qr]
-            plot_wave(x, filepath=f'{(file_directory / "cepbimo" / recipe["filepath"]).__str__()}'
+            plot_wave(x, filepath=f'{(file_directory / "cepstrum" / recipe["filepath"]).__str__()}'
                                   f'_cepstrum.png',
                       **args)
 
@@ -420,7 +420,7 @@ def demo_data_generator():
     """Demonstrate DataGenerator usage."""
     from RNG import RNG
     rng = RNG()
-    dg = DataGenerator(54, 'data/sample', rng, verbose=False)
+    dg = DataGenerator(10, 'data/sample', rng, verbose=True)
     dg.generate()
 
 
