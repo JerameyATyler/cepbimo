@@ -26,6 +26,7 @@ class DataGenerator:
         sample_count, rng
         """
         import os
+        import hashlib
         from pathlib import Path
 
         if rng is None:
@@ -46,6 +47,10 @@ class DataGenerator:
             os.mkdir(path)
         self.output_directory = path.__str__()
 
+        s = f'{rng.seed}{rng.duration}{rng.delay_limits}{rng.time_limits}{rng.reflection_limits}{rng.zenith_limits}' \
+            f'{rng.azimuth_limits}{sample_count}{verbose}'
+        self.hash = str(int(hashlib.sha256(s.encode('utf-8')).hexdigest(), 16) % 10 ** 8)
+
     def get_reflections(self, count):
         rng = self.rng
         """Generate the specified number of random reflections."""
@@ -58,10 +63,11 @@ class DataGenerator:
     def generate_ingredients_list(self):
         import pandas as pd
         from pathlib import Path
+        import os
 
         print('Generating ingredients list')
 
-        filepath = Path(self.output_directory) / 'ingredients.json'
+        filepath = Path(self.output_directory) / f'ingredients_{self.hash}.json'
 
         rng = self.rng
 
@@ -76,7 +82,8 @@ class DataGenerator:
             sample_count=self.sample_count
         ))
 
-        df.to_json(filepath, orient='records', lines=True)
+        if not os.path.isfile(filepath):
+            df.to_json(filepath, orient='records', lines=True)
         return df
 
     def generate_sample_recipe(self):
@@ -158,32 +165,40 @@ class DataGenerator:
         import dask
         from pathlib import Path
         import numpy as np
+        import os
+
         print('Data generator started')
-        filepath = Path(self.output_directory) / 'recipe'
 
-        self.generate_ingredients_list()
+        dfi = self.generate_ingredients_list()
 
-        sample_count = self.sample_count
-        chunk_size = self.chunk_size
+        filepath = Path(self.output_directory) / f'recipe_{self.hash}'
 
-        batches = int(np.ceil(sample_count / chunk_size))
-        results = []
-        print('Generating recipe batches')
-        for i in range(batches):
-            if (i + 1) * chunk_size > sample_count:
-                chunk = sample_count % chunk_size
-            else:
-                chunk = chunk_size
-            result = dask.delayed(self.generate_recipe)(chunk)
-            results.append(result)
+        if not os.path.isdir(filepath):
+            sample_count = self.sample_count
+            chunk_size = self.chunk_size
 
-        df = pd.concat(dask.compute(*results))
-        ddf = dd.from_pandas(df, chunksize=chunk_size)
-        print('Writing recipes')
-        ddf.to_parquet(filepath, engine='pyarrow')
-        print('Generating samples')
-        s = ddf.map_partitions(self.generate_samples, meta=ddf)
-        s.compute()
+            batches = int(np.ceil(sample_count / chunk_size))
+            results = []
+            print('Generating recipe batches')
+            for i in range(batches):
+                if (i + 1) * chunk_size > sample_count:
+                    chunk = sample_count % chunk_size
+                else:
+                    chunk = chunk_size
+                result = dask.delayed(self.generate_recipe)(chunk)
+                results.append(result)
+
+            df = pd.concat(dask.compute(*results))
+            ddf = dd.from_pandas(df, chunksize=chunk_size)
+            print('Writing recipes')
+            ddf.to_parquet(filepath, engine='pyarrow')
+            print('Generating samples')
+            s = ddf.map_partitions(self.generate_samples, meta=ddf)
+            s.compute()
+            df = ddf.compute()
+        else:
+            df = self.read_recipe()
+        return dfi, df
 
     def generate_samples(self, recipe):
         return recipe.apply(self.generate_sample, axis=1)
@@ -199,58 +214,97 @@ class DataGenerator:
         from Cepbimo import Cepbimo
         from utils import generate_impulse
         from pathlib import Path
+        from pydub import AudioSegment
+        import os
 
         impulse = generate_impulse(recipe['duration'])
 
         print(f'Generating sample: {recipe["filepath"]}\n')
 
         print(f'\tMixing parts: {recipe["filepath"]}')
-        signal = mix_parts(recipe['parts'], recipe['offset'], recipe['duration'])
+        filepath = Path(f"raw/{recipe['filepath']}_raw.wav")
+        if os.path.isfile(filepath):
+            signal = AudioSegment.from_wav(filepath)
+        else:
+            signal = mix_parts(recipe['parts'], recipe['offset'], recipe['duration'])
 
         print(f'\tApplying HRTF: {recipe["filepath"]}')
-        hrtf = apply_hrtf(signal, recipe['zenith'], recipe['azimuth'])
-        impulse_hrtf = apply_hrtf(impulse, recipe['zenith'], recipe['azimuth'])
+        filepath = Path(f"hrtf/{recipe['filepath']}_hrtf.wav")
+        if os.path.isfile(filepath):
+            hrtf = AudioSegment.from_wav(filepath)
+        else:
+            hrtf = apply_hrtf(signal, recipe['zenith'], recipe['azimuth'])
 
         print(f'\tApplying reflections: {recipe["filepath"]}')
-        reflections = mix_reflections(hrtf, recipe['reflection_count'], recipe['reflection_amplitude'],
-                                      recipe['reflection_delay'], recipe['reflection_zenith'],
-                                      recipe['reflection_azimuth'])
-        impulse_reflections = mix_reflections(impulse_hrtf, recipe['reflection_count'], recipe['reflection_amplitude'],
-                                              recipe['reflection_delay'], recipe['reflection_zenith'],
-                                              recipe['reflection_azimuth'])
+        filepath = Path(f"reflections/{recipe['filepath']}_reflections.wav")
+        if os.path.isfile(filepath):
+            reflections = AudioSegment.from_wav(filepath)
+        else:
+            reflections = mix_reflections(hrtf, recipe['reflection_count'], recipe['reflection_amplitude'],
+                                          recipe['reflection_delay'], recipe['reflection_zenith'],
+                                          recipe['reflection_azimuth'])
 
         print(f'\tApplying reverberation: {recipe["filepath"]}')
-        reverberation = apply_reverberation(hrtf, recipe['reverb_amplitude'], recipe['reverb_delay'],
-                                            recipe['reverb_time'])
-        impulse_reverberation = apply_reverberation(impulse_hrtf, recipe['reverb_amplitude'], recipe['reverb_delay'],
-                                                    recipe['reverb_time'])
+        filepath = Path(f"reverberation/{recipe['filepath']}_reverberation.wav")
+        if os.path.isfile(filepath):
+            reverberation = AudioSegment.from_wav(filepath)
+        else:
+            reverberation = apply_reverberation(hrtf, recipe['reverb_amplitude'], recipe['reverb_delay'],
+                                                recipe['reverb_time'])
 
         print(f'\tSumming signals: {recipe["filepath"]}')
-        summation = sum_signals(reflections, reverberation)
-        impulse_summation = sum_signals(impulse_reflections, impulse_reverberation)
+        filepath = Path(f"summation/{recipe['filepath']}_summation.wav")
+        if os.path.isfile(filepath):
+            summation = AudioSegment.from_wav(filepath)
+        else:
+            summation = sum_signals(reflections, reverberation)
 
         print(f'\tAdjusting signal-to-noise ratio: {recipe["filepath"]}')
-        noise = adjust_signal_to_noise(summation, -60)
-        impulse_noise = adjust_signal_to_noise(impulse_summation, -60)
+        filepath = Path(f"noise/{recipe['filepath']}_noise.wav")
+        if os.path.isfile(filepath):
+            noise = AudioSegment.from_wav(filepath)
+        else:
+            noise = adjust_signal_to_noise(summation, -60)
 
         print(f'\tTrimming sample: {recipe["filepath"]}')
-        sample = noise[:recipe['duration'] * 1000]
-        impulse_sample = impulse_noise[:recipe['duration'] * 1000]
+        filepath = Path(f"samples/{recipe['filepath']}.wav")
+        if os.path.isfile(filepath):
+            sample = AudioSegment.from_wav(filepath)
+        else:
+            sample = noise[:recipe['duration'] * 1000]
         self.write(sample, 'samples', f'{recipe["filepath"]}.wav')
 
         if self.verbose:
-            self.write(impulse_sample, 'rir', f'{recipe["filepath"]}_rir.wav')
+            impulse_hrtf = apply_hrtf(impulse, recipe['zenith'], recipe['azimuth'])
+            impulse_reflections = mix_reflections(impulse_hrtf, recipe['reflection_count'],
+                                                  recipe['reflection_amplitude'], recipe['reflection_delay'],
+                                                  recipe['reflection_zenith'], recipe['reflection_azimuth'])
+            impulse_reverberation = apply_reverberation(impulse_hrtf, recipe['reverb_amplitude'],
+                                                        recipe['reverb_delay'], recipe['reverb_time'])
+            impulse_summation = sum_signals(impulse_reflections, impulse_reverberation)
+            impulse_noise = adjust_signal_to_noise(impulse_summation, -60)
+            impulse_sample = impulse_noise[:recipe['duration'] * 1000]
+
             self.write(signal, 'raw', f'{recipe["filepath"]}_raw.wav')
             self.write(hrtf, 'hrtf', f'{recipe["filepath"]}_hrtf.wav')
             self.write(reflections, 'reflections', f'{recipe["filepath"]}_reflections.wav')
             self.write(reverberation, 'reverberation', f'{recipe["filepath"]}_reverberation.wav')
             self.write(summation, 'summation', f'{recipe["filepath"]}_summation.wav')
             self.write(noise, 'noise', f'{recipe["filepath"]}_noise.wav')
+            self.write(impulse_sample, 'rir', f'{recipe["filepath"]}_rir.wav')
 
             print(f'\tGenerating figures: {recipe["filepath"]}')
 
             print(f'\tGenerating figure: samples/{recipe["filepath"]}_sample.png')
             file_directory = Path(f'{self.output_directory}')
+
+            print(f'\tGenerating figure: rir/{recipe["filepath"]}_rir.png')
+            t = np.linspace(0, int(np.ceil(signal.duration_seconds)), int(signal.frame_count()))
+            x = np.array(split_channels(impulse_sample)).transpose()
+            args = dict(suptitle='Room impulse response', title=['Left channel', 'Right channel'],
+                        xlabel=['Time, s', 'Time, s'], ylabel=['Amplitude', 'Amplitude'], t=[t, t])
+            plot_wave(x, filepath=f'{(file_directory / "rir" / recipe["filepath"]).__str__()}'
+                                  f'_rir.png', **args)
 
             args = dict(suptitle='Sample', title=f'{recipe["part_count"]}')
             plot_sample(recipe['zenith'], recipe['azimuth'], recipe['reflection_zenith'],
@@ -395,25 +449,20 @@ class DataGenerator:
     def read_recipe(self):
         """Read the recipe from a file."""
         from pathlib import Path
-        import pandas as pd
+        import dask.dataframe as dd
 
-        path = Path(self.output_directory) / 'recipe.json'
+        path = Path(self.output_directory) / f'recipe_{self.hash}'
+        path = path.__str__()
 
-        chunks = []
-
-        with pd.read_json(path, orient='records', lines=True, chunksize=self.chunk_size) as reader:
-            for chunk in reader:
-                chunks.append(chunk)
-
-        return pd.concat(chunks)
+        return dd.read_parquet(path, engine='pyarrow').compute()
 
     def read_ingredients(self):
         import pandas as pd
         from pathlib import Path
 
-        path = Path(self.output_directory) / 'ingredients.json'
+        path = Path(self.output_directory) / f'ingredients_{self.hash}.json'
 
-        return pd.read_json(path, orient='records')
+        return pd.read_json(path, orient='records', lines=True)
 
 
 def demo_data_generator():
@@ -421,7 +470,8 @@ def demo_data_generator():
     from RNG import RNG
     rng = RNG()
     dg = DataGenerator(10, 'data/sample', rng, verbose=True)
-    dg.generate()
+    ingredients, recipe = dg.generate()
+    print(ingredients, recipe)
 
 
 if __name__ == '__main__':
