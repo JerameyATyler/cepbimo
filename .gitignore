@@ -134,9 +134,9 @@ cepbimo/.idea
 # Data
 cepbimo/data/anechoic/*
 cepbimo/data/hrtf/*
-cepbimo/data/demo
 cepbimo/data/*.zip
-cepbimo/data
+cepbimo/data/reflections/*
+cepbimo/*.zip
 
 # Dataset
 

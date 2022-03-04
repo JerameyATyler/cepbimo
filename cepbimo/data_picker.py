@@ -1,6 +1,3 @@
-import shutil
-
-
 class DataPicker:
 
     def __init__(self):
@@ -74,7 +71,7 @@ class DataPicker:
 
         raw_html = format_html('Raw signal', 'An anechoic signal.')
         raw_audio = format_audio(str(directory / f'raw/{filename}_raw.wav'))
-        raw_plot = format_image(str(directory / f'raw/{filename}.png'))
+        raw_plot = format_image(str(directory / f'raw/{filename}_raw.png'))
 
         hrtf_html = format_html('HRTF', 'A head-related transfer function (HRTF) is applied to the signal.')
         hrtf_audio = format_audio(str(directory / f'hrtf/{filename}_hrtf.wav'))
@@ -102,8 +99,8 @@ class DataPicker:
         sample_plot = format_image(str(directory / f'samples/{filename}.png'))
 
         cepstrum_html = format_html('Cepstrum', 'The cepstrum of the sample signal.')
-        cepstrum_plot1 = format_image(str(directory / f'cepstrums/{filename}_cepstrum.png'))
-        cepstrum_plot2 = format_image(str(directory / f'cepstrums/{filename}_cepstrum20.png'))
+        cepstrum_plot1 = format_image(str(directory / f'cepstrum/{filename}_cepstrum.png'))
+        cepstrum_plot2 = format_image(str(directory / f'cepstrum/{filename}_cepstrum20.png'))
 
         cepbimo_html = format_html('Cepbimo', 'The cepstral-based binaural model.')
         cepbimo_plot1 = format_image(str(directory / f'cepbimo/{filename}_cepbimo.png'))
@@ -233,6 +230,7 @@ class DataPicker:
              verbose_label, confirm_button], layout=widgets.Layout(display='flex', flex_flow='column'))
 
     def generate_viewer(self):
+        import shutil
         from ipywidgets import widgets
         from IPython.display import display, HTML
 
@@ -244,8 +242,7 @@ class DataPicker:
         zenith_limits = self.params['zenith_limits']
         azimuth_limits = self.params['azimuth_limits']
         sample_count = self.params['sample_count']
-        # verbose = self.params['verbose']
-        verbose = False
+        verbose = self.params['verbose']
 
         output = widgets.Output()
 
@@ -274,4 +271,5 @@ class DataPicker:
         generate_button = widgets.Button(description='Generate')
         generate_button.on_click(on_click)
 
-        return widgets.Box([generate_button, output], layout=widgets.Layout(display='flex', flex_flow='column', max_height='400px'))
+        return widgets.Box([generate_button, output],
+                           layout=widgets.Layout(display='flex', flex_flow='column', max_height='400px'))
