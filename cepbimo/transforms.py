@@ -77,7 +77,7 @@ def mix_parts(parts, offset, duration):
     s = AudioSegment.silent(duration=t)
 
     for p in sounds:
-        s = s.overlay(p)
+        s = s.overlay(p, gain_during_overlay=-3)
 
     return s
 
@@ -90,10 +90,10 @@ def mix_reflections(x, count, amplitudes, delays, zeniths, azimuths):
     t = max([len(r) for r in reflections])
 
     s = AudioSegment.silent(duration=t)
-    y = s.overlay(x)
+    y = s.overlay(x, gain_during_overlay=-3)
 
     for r in reflections:
-        y = y.overlay(r)
+        y = y.overlay(r, gain_during_overlay=-3)
 
     return y
 
@@ -105,8 +105,8 @@ def sum_signals(x, y):
     t = max(len(x), len(y))
 
     s = AudioSegment.silent(duration=t)
-    s = s.overlay(x)
-    s = s.overlay(y)
+    s = s.overlay(x, gain_during_overlay=-3)
+    s = s.overlay(y, gain_during_overlay=-3)
 
     return s
 
