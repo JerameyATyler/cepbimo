@@ -122,5 +122,86 @@ def list_anechoic_lengths(composer=None):
     return {c: len(AudioSegment.from_mp3(list_anechoic_data()[c][0])) for c in composers}
 
 
+def read_recipe(path):
+    import dask.dataframe as dd
+    return dd.read_parquet(path, engine='pyarrow').compute()
+
+
+def read_ingredients(path):
+    import pandas as pd
+    return pd.read_json(path, orient='records', lines=True)
+
+
+def train_test_validation_split(filepaths):
+    from sklearn.model_selection import train_test_split
+
+    train, test = train_test_split(filepaths, test_size=0.2, random_state=1)
+    train, validate = train_test_split(train, test_size=0.25, random_state=1)
+    return train, test, validate
+
+
+def split_data(recipe_directory):
+    from zipfile import ZipFile
+    from pathlib import Path
+    import os
+    import dask.dataframe as dd
+
+    recipe = read_recipe(recipe_directory)
+    train, test, validate = train_test_validation_split(recipe[['filepath']])
+
+    train_labels = recipe[(recipe.filepath.isin(train['filepath'].tolist()))]
+    test_labels = recipe[(recipe.filepath.isin(test['filepath'].tolist()))]
+    validate_labels = recipe[(recipe.filepath.isin(validate['filepath'].tolist()))]
+
+    root_path = Path(recipe_directory).parents[0]
+    directories = ['cepbimo', 'cepstrum', 'hrtf', 'noise', 'raw', 'reflections', 'reverberation', 'rir', 'samples',
+                   'summation']
+
+    with ZipFile('train.zip', 'w') as z:
+        ddf = dd.from_pandas(train_labels, chunksize=50)
+        ddf.to_parquet('train_recipe', engine='pyarrow')
+        z.write('train_recipe')
+        for file in train['filepath'].tolist():
+            for d in directories:
+                directory_path = root_path / d
+                if os.path.isdir(directory_path):
+                    for f in os.listdir(directory_path):
+                        if file in f:
+                            z.write(directory_path / f'{f}')
+
+    with ZipFile('test.zip', 'w') as z:
+        ddf = dd.from_pandas(test_labels, chunksize=50)
+        ddf.to_parquet('test_recipe', engine='pyarrow')
+        z.write('test_recipe')
+        for file in test['filepath'].tolist():
+            for d in directories:
+                directory_path = root_path / d
+                if os.path.isdir(directory_path):
+                    for f in os.listdir(directory_path):
+                        if file in f:
+                            z.write(directory_path / f'{f}')
+
+    with ZipFile('validate.zip', 'w') as z:
+        ddf = dd.from_pandas(validate_labels, chunksize=50)
+        ddf.to_parquet('validate_recipe', engine='pyarrow')
+        z.write('validate_recipe')
+        for file in validate['filepath'].tolist():
+            for d in directories:
+                directory_path = root_path / d
+                if os.path.isdir(directory_path):
+                    for f in os.listdir(directory_path):
+                        if file in f:
+                            z.write(directory_path / f'{f}')
+
+    return train_labels, test_labels, validate_labels
+
+
+def demo_ttv_split():
+    from pathlib import Path
+
+    path = Path('data/sample/reflections/recipe_50921501').__str__()
+    split_data(path)
+
+
 if __name__ == '__main__':
-    print(list_anechoic_lengths())
+    demo_ttv_split()

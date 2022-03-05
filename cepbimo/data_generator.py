@@ -166,6 +166,7 @@ class DataGenerator:
         from pathlib import Path
         import numpy as np
         import os
+        from data_loader import read_recipe
 
         print('Data generator started')
 
@@ -197,7 +198,7 @@ class DataGenerator:
             s.compute()
             df = ddf.compute()
         else:
-            df = self.read_recipe()
+            df = read_recipe((Path(self.output_directory) / f'recipe_{self.hash}').__str__())
         return dfi, df
 
     def generate_samples(self, recipe):
@@ -350,7 +351,7 @@ class DataGenerator:
             t = np.linspace(0, int(np.ceil(summation.duration_seconds)), int(summation.frame_count()))
             x = np.array(split_channels(summation)).transpose()
             args['t'] = [t, t]
-            args['suptitle'] = 'Reflections and reverberation applied to direct signal'
+            args['suptitle'] = 'Reflections and reverberation applied'
             plot_wave(x, filepath=f'{(file_directory / "summation" / recipe["filepath"]).__str__()}'
                                   f'_summation.png',
                       **args)
@@ -446,30 +447,12 @@ class DataGenerator:
 
         return path
 
-    def read_recipe(self):
-        """Read the recipe from a file."""
-        from pathlib import Path
-        import dask.dataframe as dd
-
-        path = Path(self.output_directory) / f'recipe_{self.hash}'
-        path = path.__str__()
-
-        return dd.read_parquet(path, engine='pyarrow').compute()
-
-    def read_ingredients(self):
-        import pandas as pd
-        from pathlib import Path
-
-        path = Path(self.output_directory) / f'ingredients_{self.hash}.json'
-
-        return pd.read_json(path, orient='records', lines=True)
-
 
 def demo_data_generator():
     """Demonstrate DataGenerator usage."""
     from RNG import RNG
     rng = RNG()
-    dg = DataGenerator(10, 'data/sample', rng, verbose=True)
+    dg = DataGenerator(10000, 'data/sample', rng, verbose=False)
     ingredients, recipe = dg.generate()
     print(ingredients, recipe)
 
