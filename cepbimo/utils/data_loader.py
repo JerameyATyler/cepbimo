@@ -213,8 +213,8 @@ def s3_upload():
 
     session = boto3.session.Session()
     client = session.client('s3', endpoint_url='https://sfo3.digitaloceanspaces.com', region_name='sfo3',
-                            aws_access_key_id='2SYC4YBEBTTZTY37MO4E',
-                            aws_secret_access_key='G7rnSe/ZCVi+CScIU++2Dp/IIWRNb4aaWPzBCswGyF0')
+                            aws_access_key_id='',
+                            aws_secret_access_key='')
 
     path = 'C:/Users/Jeram/Desktop/datasets'
     path = Path(path)
