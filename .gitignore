@@ -139,6 +139,9 @@ cepbimo/data/reflections/*
 cepbimo/*.zip
 
 # Dataset
-
+data/train
+data/test
+data/validate
+data/ani
 # Dask
 cepbimo/dask-worker-space

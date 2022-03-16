@@ -77,22 +77,37 @@ class Anechoic(Dataset):
 
     def __getitem__(self, item):
         from pathlib import Path
-        from utils.utils import split_channels
         from pydub import AudioSegment
+        import numpy as np
+        from utils.utils import split_channels
 
         labels = self.labels.iloc[item]
-        audio = split_channels(AudioSegment.from_wav((Path(self.dataset_path) / f"{labels['filepath']}.wav").__str__()))
+        audio = AudioSegment.from_wav((Path(self.dataset_path) / f"{labels['filepath']}.wav").__str__())
 
         if self.transform:
             audio = self.transform(audio)
         if self.target_transform:
             labels = self.target_transform(labels)
 
+        audio = np.array(split_channels(audio)).transpose()
+
         return audio, labels
+
+    def play_sample(self, item):
+        from pathlib import Path
+        from pydub import AudioSegment
+        from utils.utils import play_audio
+        from IPython.display import display
+        import os
+
+        filepath = f"{(Path(self.dataset_path) / self.labels.iloc[item]['filepath']).__str__()}.wav"
+        assert os.path.isfile(filepath), f"{filepath} does not exist"
+        audio = AudioSegment.from_wav(filepath)
+        return display(play_audio(audio))
 
 
 def demo_anechoic():
-    ani = Anechoic('../data/ani', 'test', download=True)
+    ani = Anechoic('../data/ani', 'test', download=False)
     print(len(ani))
 
     for i in range(5):
