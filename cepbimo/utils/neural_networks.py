@@ -3,6 +3,7 @@ def train_loop(dataloader, model, loss_fn, optimizer):
     for batch, (X, y) in enumerate(dataloader):
         pred = model(X)
         loss = loss_fn(pred, y)
+        correct = 0
 
         optimizer.zero_grad()
         loss.backward()
@@ -10,7 +11,9 @@ def train_loop(dataloader, model, loss_fn, optimizer):
 
         if batch % 10 == 0:
             loss, current = loss.item(), batch * len(X)
-            print(f"loss: {loss:>7f} [{current:>5d}/{size:>5d}]")
+            correct += (pred.argmax(1) == y).sum().item()
+            correct /= len(X)
+            print(f"Accuracy: {(100 * correct):>0.2f}%, batch loss: {loss:>7f} [{current:>5d}/{size:>5d}]")
 
 
 def test_loop(dataloader, model, loss_fn):

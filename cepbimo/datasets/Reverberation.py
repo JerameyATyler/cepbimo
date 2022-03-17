@@ -106,6 +106,11 @@ class Amplitude(Reverberation):
         """
         super().__init__(root, ttv, download=download, transform=transform, target_transform=target_transform)
 
+    def __getitem__(self, item):
+        audio, labels = super().__getitem__(item)
+        labels = labels.iloc[0]
+        return audio, labels
+
     def set_labels(self):
         """Overrides super().set_labels to limit labels to those related to reverberation."""
         from utils.data_loader import read_recipe

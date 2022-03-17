@@ -132,11 +132,9 @@ dmypy.json
 cepbimo/.idea
 
 # Data
-cepbimo/data/anechoic/*
-cepbimo/data/hrtf/*
-cepbimo/data/*.zip
-cepbimo/data/reflections/*
-cepbimo/*.zip
+cepbimo/data/*
+cepbimo/data
+cepbimo/*/*.zip
 
 # Dataset
 data/train

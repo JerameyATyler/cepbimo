@@ -3,6 +3,7 @@ class DataPicker:
     def __init__(self):
         from data_generator.RNG import RNG
         from data_generator.data_generator import DataGenerator
+        from pathlib import Path
 
         rng = RNG()
         seed = rng.seed
@@ -15,7 +16,9 @@ class DataPicker:
         sample_count = 1
         verbose = True
 
-        dg = DataGenerator(sample_count, 'data/sample_data', rng=rng, verbose=verbose)
+        data_path = Path('data/sample_data').__str__()
+
+        dg = DataGenerator(sample_count, data_path, rng=rng, verbose=verbose)
         ingredients, recipe = dg.generate()
 
         sample_count = 10
@@ -66,7 +69,7 @@ class DataPicker:
                 return widgets.Image(value=file.read(), format='png', layout=dict(max_width='30%'))
 
         df = self.sample_data.iloc[0]
-        directory = Path('../data/sample_data/reflections/')
+        directory = Path('data/sample_data/reflections/')
         filename = df["filepath"]
 
         raw_html = format_html('Raw signal', 'An anechoic signal.')

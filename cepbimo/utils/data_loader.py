@@ -3,7 +3,7 @@ def list_composers(console=False):
     import os
     from pathlib import Path
 
-    path = Path('../data/anechoic')
+    path = Path('data/anechoic')
 
     composers = os.listdir(path)
 
@@ -18,7 +18,7 @@ def list_anechoic_data(console=False):
     import os
     from pathlib import Path
 
-    path = Path('../data/anechoic')
+    path = Path('data/anechoic')
 
     composers = list_composers()
 
@@ -40,7 +40,7 @@ def list_hrtf_data(console=False):
     from pathlib import Path
     import os
 
-    path = Path('../data/hrtf/')
+    path = Path('data/hrtf/')
 
     zeniths = {}
 
