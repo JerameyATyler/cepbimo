@@ -1,6 +1,6 @@
 # Cepstral Binaural Model (cepbimo)
 ## Binder
-[![Binder](https://mybinder.org/badge_logo.svg)](https://mybinder.org/v2/gh/JerameyATyler/mybinder_environment/main?urlpath=git-pull%3Frepo%3Dhttps%253A%252F%252Fgithub.com%252FJerameyATyler%252Fcepbimo%26urlpath%3Dlab%252Ftree%252Fcepbimo%252Fcepbimo%252Fnotebooks%252Findex.ipynb%26branch%3Dmain)
+[![Binder](https://mybinder.org/badge_logo.svg)](https://mybinder.org/v2/gh/JerameyATyler/mybinder_environment/main?urlpath=git-pull%3Frepo%3Dhttps%253A%252F%252Fgithub.com%252FJerameyATyler%252Fcepbimo%26urlpath%3Dlab%252Ftree%252Fcepbimo%252Fcepbimo%252Findex.ipynb%26branch%3Dmain)
 Click on the badge to view on MyBinder.
 ***
 > A new model architecture is presented to predict room acoustical parameters from a running binaural signal. For this purpose, a deep neural network architecture is combined with a precedence effect model to extract the 
