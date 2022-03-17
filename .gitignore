@@ -133,7 +133,7 @@ cepbimo/.idea
 
 # Data
 cepbimo/data/*
-cepbimo/data
+cepbimo/data/
 cepbimo/*/*.zip
 
 # Dataset
