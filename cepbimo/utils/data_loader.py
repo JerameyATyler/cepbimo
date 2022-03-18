@@ -207,22 +207,20 @@ def demo_ttv_split():
     split_data(path)
 
 
-def s3_upload():
+def s3_upload(filepath, bucket, filename, access_key, secret_key):
     import boto3
     from pathlib import Path
 
     session = boto3.session.Session()
     client = session.client('s3', endpoint_url='https://sfo3.digitaloceanspaces.com', region_name='sfo3',
-                            aws_access_key_id='',
-                            aws_secret_access_key='')
+                            aws_access_key_id=access_key,
+                            aws_secret_access_key=secret_key)
 
-    path = 'C:/Users/Jeram/Desktop/datasets'
-    path = Path(path)
+    filepath = (Path(filepath)).__str__()
+    filename = (Path(filename)).__str__()
 
-    # client.upload_file((path / 'train.zip').__str__(), 'reflections', 'train.zip')
-    client.upload_file((path / 'full.zip').__str__(), 'reflections', 'full.zip')
+    client.upload_file(filepath, bucket, filename)
 
 
 if __name__ == '__main__':
-    # demo_ttv_split()
-    s3_upload()
+    demo_ttv_split()
